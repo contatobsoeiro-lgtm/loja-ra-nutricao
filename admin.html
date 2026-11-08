@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel | RA Collection</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px var(--gutter) 96px; }
+  .login { max-width: 400px; margin: 10vh auto; padding: 0 16px; }
+  .login h1 { font-family: var(--serif); font-weight: 400; font-size: 34px; margin-bottom: 6px; }
+  .login p { color: var(--graphite); font-size: 14px; margin-bottom: 10px; }
+  .tabs { display: flex; gap: 28px; border-bottom: 1px solid var(--line); margin-bottom: 28px; overflow-x: auto; }
+  .tab { padding: 14px 0; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--ink); border-color: var(--ink); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); padding: 18px 20px; }
+  .kpi span { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+  .kpi strong { display: block; font-family: var(--serif); font-weight: 500; font-size: 32px; line-height: 1.2; margin-top: 4px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+  .toolbar input, .toolbar select, .inp, .sel, textarea.inp { height: 42px; border: 1px solid var(--line); background: var(--surface); padding: 0 12px; font-size: 14px; border-radius: 0; outline: none; }
+  .toolbar input { flex: 1; min-width: 200px; }
+  textarea.inp { height: auto; min-height: 70px; padding: 10px 12px; width: 100%; resize: vertical; }
+  .inp:focus, .sel:focus, .toolbar input:focus, .toolbar select:focus { border-color: var(--ink); }
+  .btn.sm { height: 42px; padding: 0 18px; font-size: 11px; letter-spacing: .18em; }
+  .order { background: var(--surface); border: 1px solid var(--line); margin-bottom: 10px; }
+  .order summary { list-style: none; display: grid; grid-template-columns: 70px 1.6fr 1fr 1fr 130px; gap: 14px; align-items: center; padding: 16px 18px; cursor: pointer; font-size: 14px; }
+  .order summary::-webkit-details-marker { display: none; }
+  .order .num { font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+  .order .who strong { font-weight: 500; display: block; }
+  .order .who small, .order .when { color: var(--muted); font-size: 12px; }
+  .pill { display: inline-block; padding: 4px 10px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; border: 1px solid var(--line); }
+  .pill.novo { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .pill.cancelado { color: var(--muted); text-decoration: line-through; }
+  .order-body { border-top: 1px solid var(--line); padding: 18px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 28px; }
+  .items { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .items td, .items th { padding: 8px 0; border-bottom: 1px solid var(--line); text-align: left; }
+  .items th { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+  .items td:last-child, .items th:last-child { text-align: right; }
+  .contact a { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; margin-bottom: 6px; }
+  .side label { display: block; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--graphite); margin: 14px 0 6px; }
+  .side .sel { width: 100%; }
+  .danger { color: var(--err); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; margin-top: 16px; }
+  @media (max-width: 760px) {
+    .order summary { grid-template-columns: 1fr auto; }
+    .order summary .when, .order summary .tot { display: none; }
+    .order summary .num { grid-column: 1 / -1; }
+    .order-body { grid-template-columns: 1fr; }
+  }
+  table.cons { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); font-size: 14px; }
+  table.cons th, table.cons td { padding: 12px 16px; border-bottom: 1px solid var(--line); text-align: left; }
+  table.cons th { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+  table.cons td.n, table.cons th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  table.cons tr.grp td { background: var(--bg); font-weight: 500; }
+  .table-scroll { overflow-x: auto; }
+  .prods { display: grid; gap: 14px; }
+  .prod { background: var(--surface); border: 1px solid var(--line); display: grid; grid-template-columns: 180px 1fr; gap: 22px; padding: 18px; }
+  .prod.off { opacity: .6; }
+  .prod-photo { aspect-ratio: 4 / 5; background: var(--placeholder); position: relative; overflow: hidden; }
+  .prod-photo img { width: 100%; height: 100%; object-fit: cover; }
+  .upload { display: block; text-align: center; margin-top: 8px; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .upload input { display: none; }
+  .prod-fields { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px 14px; align-content: start; }
+  .prod-fields .full { grid-column: 1 / -1; }
+  .prod-fields label { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--graphite); display: block; margin-bottom: 6px; }
+  .prod-fields .inp { width: 100%; }
+  .prod-fields .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .prod-actions { grid-column: 1 / -1; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .toggle { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+  .toggle input { accent-color: var(--ink); width: 18px; height: 18px; }
+  .saved { font-size: 12px; color: var(--ok); }
+  @media (max-width: 760px) { .prod { grid-template-columns: 110px 1fr; } .prod-fields { grid-template-columns: 1fr 1fr; } .prod-fields > div:first-child { grid-column: 1 / -1; } }
+  .head-actions { display: flex; gap: 18px; align-items: center; font-size: 13px; color: var(--graphite); }
+  .head-actions button { text-decoration: underline; text-underline-offset: 3px; }
+  .section-title { font-family: var(--serif); font-weight: 400; font-size: 30px; margin-bottom: 4px; }
+  .section-lead { color: var(--graphite); font-size: 14px; margin-bottom: 22px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a class="logo" href="./" id="logo"><span class="wordmark">RA<small>PAINEL</small></span></a>
+    <div class="head-actions" id="headActions" hidden><span id="who"></span><button id="sair">Sair</button></div>
+  </div>
+</header>
+
+<!-- Login -->
+<section class="login" id="loginView" hidden>
+  <h1>Painel da Collection</h1>
+  <p>Entre com o mesmo e-mail e senha do CRM da equipe.</p>
+  <form id="loginForm">
+    <div class="field"><label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="lSenha">Senha</label><input id="lSenha" type="password" autocomplete="current-password" required></div>
+    <p class="form-error" id="loginErr" hidden style="margin-top:14px"></p>
+    <button class="btn block" style="margin-top:22px" id="loginBtn">Entrar</button>
+  </form>
+</section>
+
+<section class="login" id="noAccess" hidden>
+  <h1>Sem acesso</h1>
+  <p>Este usuário não está liberado no painel da loja. Peça para incluírem seu e-mail na lista de administradores.</p>
+  <button class="btn ghost block" style="margin-top:18px" id="sair2">Sair</button>
+</section>
+
+<main class="wrap" id="app" hidden>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="pedidos" aria-selected="true">Pedidos</button>
+    <button class="tab" role="tab" data-tab="encomenda" aria-selected="false">Encomenda coletiva</button>
+    <button class="tab" role="tab" data-tab="produtos" aria-selected="false">Produtos</button>
+  </nav>
+
+  <section data-view="pedidos">
+    <div class="kpis" id="kpis"></div>
+    <div class="toolbar">
+      <input id="busca" type="search" placeholder="Buscar por nome, WhatsApp ou nº do pedido">
+      <select id="fStatus" class="sel">
+        <option value="">Todos os status</option>
+        <option value="ativos" selected>Ativos (sem cancelados)</option>
+      </select>
+      <button class="btn sm ghost" id="csvPedidos">Exportar CSV</button>
+      <button class="btn sm ghost" id="recarregar">Atualizar</button>
+    </div>
+    <div id="lista"><p class="loading">Carregando pedidos...</p></div>
+  </section>
+
+  <section data-view="encomenda" hidden>
+    <h2 class="section-title">Encomenda coletiva</h2>
+    <p class="section-lead">Soma de todos os pedidos, menos os cancelados, separada por produto e tamanho. É a lista para mandar ao fornecedor.</p>
+    <div class="toolbar"><button class="btn sm ghost" id="csvEncomenda">Exportar CSV</button></div>
+    <div class="table-scroll" id="consolidado"></div>
+  </section>
+
+  <section data-view="produtos" hidden>
+    <h2 class="section-title">Produtos</h2>
+    <p class="section-lead">Edite nome, foto, preço, tamanhos e descrição. Produto desativado some da loja, mas continua nos pedidos antigos.</p>
+    <div class="toolbar"><button class="btn sm" id="novoProd">Novo produto</button></div>
+    <div class="prods" id="prods"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/admin.js"></script>
+</body>
+</html>

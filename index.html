@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RA Nutrição | Collection</title>
+<meta name="description" content="Produtos exclusivos para quem faz parte da comunidade RA Nutrição. Entre na lista de espera, sem pagamento agora.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a class="logo" href="./" id="logo" aria-label="RA Nutrição, página inicial">
+      <span class="wordmark">RA<small>NUTRIÇÃO</small></span>
+    </a>
+    <button class="bag-btn" id="bagBtn" aria-label="Abrir sacola">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M5 8h14l-1.2 12.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8L5 8Z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/></svg>
+      <span class="bag-count" id="bagCount" hidden>0</span>
+      <span class="bag-label">Sacola</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="mark" data-logo hidden></div>
+    <p class="eyebrow">Consultoria online · Nutricionista Rafael Albergaria</p>
+    <h1><b>RA NUTRIÇÃO</b> <span>|</span> <b>COLLECTION</b></h1>
+    <p class="sub">Produtos exclusivos para quem faz parte da nossa comunidade.</p>
+    <p class="desc">Escolha seus produtos favoritos e entre na nossa lista de espera. Assim que reunirmos os pedidos, organizaremos a produção e entraremos em contato com você.</p>
+    <p class="notice">Sem pagamento agora. Você está apenas registrando seu interesse.</p>
+  </section>
+
+  <section class="author" aria-labelledby="authorTitle">
+    <div class="author-inner">
+      <div class="author-photo" id="authorPhoto"><div class="ph"><div><span>RA</span></div></div></div>
+      <div class="author-text">
+        <p class="eyebrow">Edição exclusiva para pacientes</p>
+        <h2 id="authorTitle">Feita para quem vive <em>a consultoria</em> com a gente.</h2>
+        <p>A RA Collection nasceu da comunidade da consultoria online. São peças pensadas para acompanhar a sua rotina, do treino ao dia a dia, e que só quem faz parte pode encomendar.</p>
+        <p class="sign">Rafael Albergaria<small>Nutricionista</small></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="catalog" aria-labelledby="catTitle">
+    <div class="catalog-head">
+      <h2 id="catTitle">A coleção</h2>
+      <p id="catCount"></p>
+    </div>
+    <div class="grid" id="grid"><p class="loading">Carregando a coleção...</p></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="flogo" data-logo hidden></div>
+  <strong>Nutricionista Rafael Albergaria</strong>
+  RA Nutrição · Collection · Lista de espera, sem cobrança pelo site
+</footer>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- Produto -->
+<div class="product-modal" id="pm" role="dialog" aria-modal="true" aria-labelledby="pmName" hidden>
+  <div class="pm-box">
+    <button class="close" data-close="pm" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="pm-media" id="pmMedia" title="Ampliar foto"></div>
+    <div class="pm-body">
+      <h2 class="pm-name" id="pmName"></h2>
+      <p class="pm-price" id="pmPrice"></p>
+      <p class="pm-desc" id="pmDesc"></p>
+      <div id="pmSizesWrap">
+        <p class="label"><span>Tamanho</span></p>
+        <div class="sizes" id="pmSizes" role="group" aria-label="Tamanho"></div>
+        <p class="size-hint" id="pmSizeHint" aria-live="polite"></p>
+      </div>
+      <p class="label"><span>Quantidade</span></p>
+      <div class="qty" id="pmQty">
+        <button type="button" data-q="-1" aria-label="Diminuir">−</button>
+        <output id="pmQtyVal">1</output>
+        <button type="button" data-q="1" aria-label="Aumentar">+</button>
+      </div>
+      <div class="pm-actions">
+        <button class="btn block" id="pmAdd">Adicionar à sacola</button>
+        <p class="pm-note">Sem pagamento agora. Valor estimado para a encomenda coletiva.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="zoom" id="zoom" role="dialog" aria-label="Foto ampliada"></div>
+
+<!-- Sacola -->
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+  <div class="drawer-head">
+    <h2 id="drawerTitle">Sua sacola</h2>
+    <button class="close" data-close="drawer" aria-label="Fechar sacola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/loja.js"></script>
+</body>
+</html>
