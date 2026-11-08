@@ -135,7 +135,7 @@
   $('pmMedia').addEventListener('click', () => { if (!atual?.foto_url) return; $('zoom').innerHTML = `<img src="${esc(atual.foto_url)}" alt="${esc(atual.nome)}">`; $('zoom').classList.add('open'); });
   $('zoom').addEventListener('click', () => $('zoom').classList.remove('open'));
   $('pmAdd').addEventListener('click', () => {
-    if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha ${atual.rotulo.toLowerCase()} para continuar.`; return; }
+    if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha uma opção de ${atual.rotulo.toLowerCase()} para continuar.`; return; }
     adicionar(atual, tamanho, qtd);
     fechar('pm');
     toast(`${atual.nome}${tamanho ? ' · ' + tamanho : ''} adicionado à sacola`, 'Ver sacola', abrirSacola);
