@@ -19,7 +19,7 @@
     $('logo').innerHTML = `<img src="${esc(u)}" alt="RA Nutrição">`;
     document.querySelectorAll('[data-logo]').forEach((el) => { el.innerHTML = `<img src="${esc(u)}" alt="">`; el.hidden = false; });
   });
-  seExistir(C.FOTO_RAFAEL, (u) => { $('authorPhoto').innerHTML = `<img src="${esc(u)}" alt="Nutricionista Rafael Albergaria">`; });
+  seExistir(C.FOTO_RAFAEL, (u) => { $('authorPhoto').innerHTML = `<img src="${esc(u)}" alt="Encontros da comunidade com o nutricionista Rafael Albergaria">`; $('authorPhoto').classList.add('loaded'); });
 
   // ---------- Sacola (persistida no navegador) ----------
   const lerSacola = () => { try { return JSON.parse(localStorage.getItem(BAG_KEY)) || []; } catch { return []; } };

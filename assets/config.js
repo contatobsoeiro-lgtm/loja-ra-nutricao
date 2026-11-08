@@ -6,7 +6,8 @@ window.LOJA_CONFIG = {
   // Arquivos de marca: basta salvar com esses nomes na pasta assets/.
   // Enquanto não existirem, o site mostra o texto "RA NUTRIÇÃO" e um espaço reservado.
   LOGO_URL: 'assets/logo.png',
-  FOTO_RAFAEL: 'assets/rafael.jpg',
+  // Foto do bloco "Edição exclusiva para pacientes" (aparece inteira, sem corte)
+  FOTO_RAFAEL: 'assets/comunidade.jpg',
   // Aparece junto da foto em todo produto cuja escolha se chama "Tamanho"
   TABELA_MEDIDAS: 'assets/produtos/tabela-medidas-camisa.webp',
   BUCKET: 'loja-produtos'
