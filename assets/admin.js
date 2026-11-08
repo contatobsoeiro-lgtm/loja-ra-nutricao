@@ -123,7 +123,7 @@
       const r = mp.get(k) || { produto: i.produto_nome, opcao: i.tamanho || 'Único', qtd: 0, valor: 0, preco: Number(i.preco_unitario) };
       r.qtd += i.quantidade; r.valor += Number(i.subtotal); mp.set(k, r);
     }));
-    const pos = (t) => { const i = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'Único'].indexOf(t); return i < 0 ? 50 : i; };
+    const pos = (t) => { const i = ORDEM_TAM.indexOf(t); return i < 0 ? 50 : i; };
     analise.prods = [...mp.values()].sort((a, b) => a.produto.localeCompare(b.produto, 'pt-BR') || pos(a.opcao) - pos(b.opcao) || a.opcao.localeCompare(b.opcao));
     const grupos = {};
     analise.prods.forEach((r) => (grupos[r.produto] ||= []).push(r));
@@ -257,7 +257,7 @@
   };
 
   // ---------- Encomenda coletiva ----------
-  const ORDEM_TAM = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'Único'];
+  const ORDEM_TAM = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', 'Único'];
   let consolidado = [];
   async function carregarConsolidado() {
     $('consolidado').innerHTML = '<p class="loading">Calculando...</p>';
