@@ -64,9 +64,9 @@
 
   // ---------- Catálogo ----------
   async function carregar() {
-    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
+    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
     if (error) { $('grid').innerHTML = '<p class="empty">Não foi possível carregar a coleção agora. Atualize a página em instantes.</p>'; return; }
-    produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [] }));
+    produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [], rotulo: p.rotulo_opcoes || 'Tamanho' }));
     sincronizarSacola();
     $('catCount').textContent = `${produtos.length} ${produtos.length === 1 ? 'peça' : 'peças'}`;
     if (!produtos.length) { $('grid').innerHTML = '<p class="empty">A coleção está sendo preparada. Volte em breve.</p>'; return; }
@@ -74,7 +74,7 @@
       <button class="card" data-id="${p.id}">
         <div class="card-media">${midia(p)}</div>
         <div class="card-info"><span class="card-name">${esc(p.nome)}</span><span class="card-price">${brl(p.preco)}</span></div>
-        <p class="card-meta">${p.tamanhos.length ? p.tamanhos.join(' · ') : 'Tamanho único'}</p>
+        <p class="card-meta">${p.tamanhos.length ? esc(p.tamanhos.join(' · ')) : 'Tamanho único'}</p>
       </button>`).join('');
   }
   $('grid').addEventListener('click', (e) => { const c = e.target.closest('.card'); if (c) abrirProduto(c.dataset.id); });
@@ -113,6 +113,8 @@
     $('pmDesc').textContent = atual.descricao || '';
     $('pmDesc').hidden = !atual.descricao;
     $('pmSizesWrap').hidden = !atual.tamanhos.length;
+    $('pmSizeLabel').textContent = atual.rotulo;
+    $('pmSizes').setAttribute('aria-label', atual.rotulo);
     $('pmSizes').innerHTML = atual.tamanhos.map((t) => `<button type="button" class="size" aria-pressed="false" data-t="${esc(t)}">${esc(t)}</button>`).join('');
     $('pmSizeHint').textContent = '';
     renderQtd();
@@ -133,7 +135,7 @@
   $('pmMedia').addEventListener('click', () => { if (!atual?.foto_url) return; $('zoom').innerHTML = `<img src="${esc(atual.foto_url)}" alt="${esc(atual.nome)}">`; $('zoom').classList.add('open'); });
   $('zoom').addEventListener('click', () => $('zoom').classList.remove('open'));
   $('pmAdd').addEventListener('click', () => {
-    if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = 'Escolha um tamanho para continuar.'; return; }
+    if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha ${atual.rotulo.toLowerCase()} para continuar.`; return; }
     adicionar(atual, tamanho, qtd);
     fechar('pm');
     toast(`${atual.nome}${tamanho ? ' · ' + tamanho : ''} adicionado à sacola`, 'Ver sacola', abrirSacola);
@@ -170,7 +172,7 @@
           <div class="li-media">${midia(p)}</div>
           <div>
             <div class="li-top"><span class="li-name">${esc(p.nome)}</span><span class="li-sub">${brl(i.quantidade * p.preco)}</span></div>
-            <p class="li-meta">${i.tamanho ? 'Tamanho ' + esc(i.tamanho) + ' · ' : ''}${brl(p.preco)} cada</p>
+            <p class="li-meta">${i.tamanho ? esc(p.rotulo) + ' ' + esc(i.tamanho) + ' · ' : ''}${brl(p.preco)} cada</p>
             <div class="li-bottom">
               <div class="qty sm"><button type="button" data-a="menos" data-i="${idx}" aria-label="Diminuir" ${i.quantidade <= 1 ? 'disabled' : ''}>−</button><output>${i.quantidade}</output><button type="button" data-a="mais" data-i="${idx}" aria-label="Aumentar" ${i.quantidade >= MAX_QTD ? 'disabled' : ''}>+</button></div>
               <button type="button" class="li-remove" data-a="remover" data-i="${idx}">Remover</button>

@@ -78,6 +78,11 @@
   .head-actions button { text-decoration: underline; text-underline-offset: 3px; }
   .section-title { font-family: var(--serif); font-weight: 400; font-size: 30px; margin-bottom: 4px; }
   .section-lead { color: var(--graphite); font-size: 14px; margin-bottom: 22px; }
+  .sub-title { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 36px 0 14px; }
+  .bar { height: 10px; background: var(--ink); min-width: 2px; }
+  td.barcell { width: 40%; }
+  .kpi small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  #aStatus .kpi strong { font-size: 26px; }
 </style>
 </head>
 <body>
@@ -109,12 +114,45 @@
 
 <main class="wrap" id="app" hidden>
   <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" data-tab="pedidos" aria-selected="true">Pedidos</button>
+    <button class="tab" role="tab" data-tab="analises" aria-selected="true">Análises</button>
+    <button class="tab" role="tab" data-tab="pedidos" aria-selected="false">Pedidos</button>
     <button class="tab" role="tab" data-tab="encomenda" aria-selected="false">Encomenda coletiva</button>
     <button class="tab" role="tab" data-tab="produtos" aria-selected="false">Produtos</button>
   </nav>
 
-  <section data-view="pedidos">
+  <section data-view="analises">
+    <h2 class="section-title">Análises</h2>
+    <p class="section-lead">Tudo o que foi pedido no período escolhido. Pedidos cancelados ficam de fora.</p>
+    <div class="toolbar">
+      <select id="aPeriodo" class="sel">
+        <option value="hoje">Hoje</option>
+        <option value="7">Últimos 7 dias</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="mes">Este mês</option>
+        <option value="mespassado">Mês passado</option>
+        <option value="tudo" selected>Desde o início</option>
+        <option value="custom">Escolher datas</option>
+      </select>
+      <span id="aCustom" hidden style="display:inline-flex;gap:8px;align-items:center">
+        <input type="date" id="aDe" class="inp"> até <input type="date" id="aAte" class="inp">
+      </span>
+      <select id="aAgrupar" class="sel">
+        <option value="dia">Agrupar por dia</option>
+        <option value="semana" selected>Agrupar por semana</option>
+        <option value="mes">Agrupar por mês</option>
+      </select>
+      <button class="btn sm ghost" id="csvAnalise">Exportar CSV</button>
+    </div>
+    <div class="kpis" id="aKpis"></div>
+    <h3 class="sub-title">Pedidos ao longo do tempo</h3>
+    <div class="table-scroll" id="aTempo"></div>
+    <h3 class="sub-title">Por produto</h3>
+    <div class="table-scroll" id="aProdutos"></div>
+    <h3 class="sub-title">Por status</h3>
+    <div class="kpis" id="aStatus"></div>
+  </section>
+
+  <section data-view="pedidos" hidden>
     <div class="kpis" id="kpis"></div>
     <div class="toolbar">
       <input id="busca" type="search" placeholder="Buscar por nome, WhatsApp ou nº do pedido">

@@ -59,11 +59,99 @@
   async function carregarPedidos() {
     const { data, error } = await sb.from('loja_pedidos')
       .select('id,codigo,nome,whatsapp,email,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,quantidade,preco_unitario,subtotal)')
-      .order('criado_em', { ascending: false }).limit(1000);
+      .order('criado_em', { ascending: false }).limit(5000);
     if (error) { $('lista').innerHTML = `<p class="empty">Erro ao carregar: ${esc(error.message)}</p>`; return; }
     pedidos = data;
-    renderKpis(); renderLista();
+    renderKpis(); renderLista(); renderAnalise();
   }
+
+  // ---------- Análises ----------
+  const dia0 = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  function intervalo() {
+    const v = $('aPeriodo').value, hoje = dia0(new Date());
+    const mais1 = (d) => { const x = new Date(d); x.setDate(x.getDate() + 1); return x; };
+    if (v === 'hoje') return [hoje, mais1(hoje)];
+    if (v === '7' || v === '30') { const de = new Date(hoje); de.setDate(de.getDate() - Number(v) + 1); return [de, mais1(hoje)]; }
+    if (v === 'mes') return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)];
+    if (v === 'mespassado') return [new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1), new Date(hoje.getFullYear(), hoje.getMonth(), 1)];
+    if (v === 'custom') {
+      const de = $('aDe').value ? new Date($('aDe').value + 'T00:00') : new Date(2000, 0, 1);
+      const ate = $('aAte').value ? mais1(new Date($('aAte').value + 'T00:00')) : mais1(hoje);
+      return [de, ate];
+    }
+    return [new Date(2000, 0, 1), new Date(2100, 0, 1)];
+  }
+  function balde(d) {
+    const g = $('aAgrupar').value, x = dia0(d);
+    if (g === 'dia') return { k: ymd(x), rot: x.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) };
+    if (g === 'mes') return { k: `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`, rot: `${MESES[x.getMonth()]}/${x.getFullYear()}` };
+    const seg = new Date(x); seg.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // semana começa na segunda
+    const dom = new Date(seg); dom.setDate(seg.getDate() + 6);
+    const f = (y) => y.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return { k: ymd(seg), rot: `${f(seg)} a ${f(dom)}` };
+  }
+  let analise = { tempo: [], prods: [] };
+  function renderAnalise() {
+    if (!pedidos) return;
+    const [de, ate] = intervalo();
+    const noPeriodo = pedidos.filter((p) => { const t = new Date(p.criado_em); return t >= de && t < ate; });
+    const ok = noPeriodo.filter((p) => p.status !== 'cancelado');
+    const pecas = (p) => p.loja_pedido_itens.reduce((a, i) => a + i.quantidade, 0);
+    const totV = ok.reduce((s, p) => s + Number(p.total_estimado), 0);
+    const totP = ok.reduce((s, p) => s + pecas(p), 0);
+    const pessoas = new Set(ok.map((p) => p.whatsapp)).size;
+    $('aKpis').innerHTML = [
+      ['Valor total', brl(totV), 'soma dos pedidos'], ['Pedidos', ok.length, `${pessoas} ${pessoas === 1 ? 'pessoa' : 'pessoas'}`],
+      ['Peças', totP, 'para encomendar'], ['Ticket médio', brl(ok.length ? totV / ok.length : 0), 'por pedido']
+    ].map(([l, v, s]) => `<div class="kpi"><span>${l}</span><strong>${v}</strong><small>${s}</small></div>`).join('');
+
+    // ao longo do tempo
+    const mapa = new Map();
+    ok.forEach((p) => { const b = balde(p.criado_em); const r = mapa.get(b.k) || { rot: b.rot, k: b.k, pedidos: 0, pecas: 0, valor: 0 }; r.pedidos++; r.pecas += pecas(p); r.valor += Number(p.total_estimado); mapa.set(b.k, r); });
+    analise.tempo = [...mapa.values()].sort((a, b) => b.k.localeCompare(a.k));
+    const maxV = Math.max(1, ...analise.tempo.map((r) => r.valor));
+    $('aTempo').innerHTML = analise.tempo.length ? `<table class="cons"><thead><tr><th>Período</th><th class="n">Pedidos</th><th class="n">Peças</th><th class="n">Valor</th><th></th></tr></thead><tbody>
+      ${analise.tempo.map((r) => `<tr><td>${esc(r.rot)}</td><td class="n">${r.pedidos}</td><td class="n">${r.pecas}</td><td class="n">${brl(r.valor)}</td><td class="barcell"><div class="bar" style="width:${(r.valor / maxV) * 100}%"></div></td></tr>`).join('')}
+      </tbody></table>` : '<p class="empty">Nenhum pedido neste período.</p>';
+
+    // por produto e opção
+    const mp = new Map();
+    ok.forEach((p) => p.loja_pedido_itens.forEach((i) => {
+      const k = `${i.produto_nome}::${i.tamanho || 'Único'}`;
+      const r = mp.get(k) || { produto: i.produto_nome, opcao: i.tamanho || 'Único', qtd: 0, valor: 0, preco: Number(i.preco_unitario) };
+      r.qtd += i.quantidade; r.valor += Number(i.subtotal); mp.set(k, r);
+    }));
+    const pos = (t) => { const i = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'Único'].indexOf(t); return i < 0 ? 50 : i; };
+    analise.prods = [...mp.values()].sort((a, b) => a.produto.localeCompare(b.produto, 'pt-BR') || pos(a.opcao) - pos(b.opcao) || a.opcao.localeCompare(b.opcao));
+    const grupos = {};
+    analise.prods.forEach((r) => (grupos[r.produto] ||= []).push(r));
+    let html = '<table class="cons"><thead><tr><th>Produto</th><th>Opção</th><th class="n">Qtd</th><th class="n">Preço unit.</th><th class="n">Valor</th></tr></thead><tbody>';
+    Object.entries(grupos).sort((a, b) => b[1].reduce((s, r) => s + r.valor, 0) - a[1].reduce((s, r) => s + r.valor, 0)).forEach(([nome, rs]) => {
+      const q = rs.reduce((s, r) => s + r.qtd, 0), v = rs.reduce((s, r) => s + r.valor, 0);
+      html += `<tr class="grp"><td>${esc(nome)}</td><td></td><td class="n">${q}</td><td></td><td class="n">${brl(v)}</td></tr>`;
+      rs.forEach((r) => { html += `<tr><td></td><td>${esc(r.opcao)}</td><td class="n">${r.qtd}</td><td class="n">${brl(r.preco)}</td><td class="n">${brl(r.valor)}</td></tr>`; });
+    });
+    html += `<tr class="grp"><td>Total</td><td></td><td class="n">${totP}</td><td></td><td class="n">${brl(totV)}</td></tr></tbody></table>`;
+    $('aProdutos').innerHTML = analise.prods.length ? html : '<p class="empty">Nenhum produto pedido neste período.</p>';
+
+    // por status (inclui cancelados, pra mostrar o funil completo)
+    $('aStatus').innerHTML = Object.entries(STATUS).map(([k, v]) => {
+      const l = noPeriodo.filter((p) => p.status === k);
+      return `<div class="kpi"><span>${v}</span><strong>${l.length}</strong><small>${brl(l.reduce((s, p) => s + Number(p.total_estimado), 0))}</small></div>`;
+    }).join('');
+  }
+  $('aPeriodo').addEventListener('change', () => { $('aCustom').hidden = $('aPeriodo').value !== 'custom'; renderAnalise(); });
+  ['aDe', 'aAte', 'aAgrupar'].forEach((id) => $(id).addEventListener('change', renderAnalise));
+  $('csvAnalise').onclick = () => {
+    const [de, ate] = intervalo();
+    const linhas = [['Período', 'Pedidos', 'Peças', 'Valor']];
+    analise.tempo.forEach((r) => linhas.push([r.rot, r.pedidos, r.pecas, num(r.valor)]));
+    linhas.push([], ['Produto', 'Opção', 'Quantidade', 'Preço unitário', 'Valor']);
+    analise.prods.forEach((r) => linhas.push([r.produto, r.opcao, r.qtd, num(r.preco), num(r.valor)]));
+    baixarCSV(`analise-ra-collection-${ymd(de > new Date(2001, 0, 1) ? de : new Date())}.csv`, linhas);
+  };
   function filtrados() {
     const q = $('busca').value.trim().toLowerCase();
     const qd = q.replace(/\D/g, '');
@@ -135,7 +223,7 @@
       p.status = e.target.value;
       card.querySelector('.pill').className = `pill ${p.status}`;
       card.querySelector('.pill').textContent = STATUS[p.status];
-      renderKpis(); toast('Status salvo');
+      renderKpis(); renderAnalise(); toast('Status salvo');
     }
     if (e.target.dataset.f === 'obs') {
       const { error } = await sb.from('loja_pedidos').update({ observacao_admin: e.target.value }).eq('id', p.id);
@@ -214,7 +302,8 @@
           <div><label>Nome</label><input class="inp" name="nome" value="${esc(p.nome)}" required maxlength="120"></div>
           <div><label>Preço (R$)</label><input class="inp" name="preco" inputmode="decimal" value="${Number(p.preco).toFixed(2).replace('.', ',')}"></div>
           <div><label>Ordem</label><input class="inp" name="ordem" type="number" value="${p.ordem}"></div>
-          <div class="full"><label>Tamanhos</label><input class="inp" name="tamanhos" value="${esc(p.tamanhos.join(', '))}" placeholder="PP, P, M, G, GG, XG"><p class="hint">Separe por vírgula. Deixe vazio para produto sem tamanho.</p></div>
+          <div><label>Nome da escolha</label><input class="inp" name="rotulo" value="${esc(p.rotulo_opcoes || 'Tamanho')}" placeholder="Tamanho" maxlength="30"></div>
+          <div style="grid-column: span 2"><label>Opções</label><input class="inp" name="tamanhos" value="${esc(p.tamanhos.join(', '))}" placeholder="PP, P, M, G, GG, XG"><p class="hint">Separe por vírgula. Vazio = tamanho único, sem escolha.</p></div>
           <div class="full"><label>Descrição</label><textarea class="inp" name="descricao" maxlength="1200">${esc(p.descricao)}</textarea></div>
           <div class="prod-actions">
             <button class="btn sm" type="submit">Salvar</button>
@@ -230,8 +319,10 @@
     const f = e.target, id = f.dataset.id, fd = new FormData(f);
     const preco = Number(String(fd.get('preco')).replace(/\./g, '').replace(',', '.'));
     if (!fd.get('nome').trim() || isNaN(preco) || preco < 0) return toast('Confira nome e preço');
-    const tam = String(fd.get('tamanhos')).split(',').map((t) => t.trim().toUpperCase()).filter(Boolean);
-    const upd = { nome: fd.get('nome').trim(), preco, ordem: Number(fd.get('ordem')) || 0, tamanhos: [...new Set(tam)], descricao: fd.get('descricao').trim(), ativo: f.ativo.checked };
+    const rotulo = String(fd.get('rotulo')).trim() || 'Tamanho';
+    // tamanhos de roupa ficam em maiúsculas; outras opções (ex.: modelo da canga) mantêm o texto como foi digitado
+    const tam = String(fd.get('tamanhos')).split(',').map((t) => t.trim()).filter(Boolean).map((t) => (rotulo.toLowerCase() === 'tamanho' ? t.toUpperCase() : t));
+    const upd = { nome: fd.get('nome').trim(), preco, ordem: Number(fd.get('ordem')) || 0, tamanhos: [...new Set(tam)], rotulo_opcoes: rotulo, descricao: fd.get('descricao').trim(), ativo: f.ativo.checked };
     const { error } = await sb.from('loja_produtos').update(upd).eq('id', id);
     if (error) return toast('Erro ao salvar: ' + error.message);
     Object.assign(produtos.find((p) => p.id === id), upd);
