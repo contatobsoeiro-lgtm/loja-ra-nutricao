@@ -107,7 +107,15 @@
   function abrirProduto(id) {
     atual = prod(id); if (!atual) return;
     tamanho = null; qtd = 1;
-    $('pmMedia').innerHTML = midia(atual);
+    // galeria: foto do produto e, nas peças com tamanho, a tabela de medidas
+    imagens = [];
+    if (atual.foto_url) imagens.push({ url: atual.foto_url, rot: 'Foto', alt: atual.nome });
+    const temTabela = !!(C.TABELA_MEDIDAS && atual.tamanhos.length && atual.rotulo.toLowerCase() === 'tamanho');
+    if (temTabela) imagens.push({ url: C.TABELA_MEDIDAS, rot: 'Medidas', alt: 'Tabela de medidas da camisa' });
+    $('pmMedidas').hidden = !temTabela;
+    $('pmThumbs').hidden = imagens.length < 2;
+    $('pmThumbs').innerHTML = imagens.map((im, i) => `<button type="button" class="pm-thumb" data-img="${i}" aria-pressed="${i === 0}"><span><img src="${esc(im.url)}" alt=""></span>${esc(im.rot)}</button>`).join('');
+    mostrarImagem(0);
     $('pmName').textContent = atual.nome;
     $('pmPrice').innerHTML = `${brl(atual.preco)}<small>Valor estimado por unidade</small>`;
     $('pmDesc').textContent = atual.descricao || '';
@@ -132,7 +140,17 @@
     $('pmQty').querySelector('[data-q="1"]').disabled = qtd >= MAX_QTD;
   }
   $('pmQty').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; qtd = Math.max(1, Math.min(MAX_QTD, qtd + Number(b.dataset.q))); renderQtd(); });
-  $('pmMedia').addEventListener('click', () => { if (!atual?.foto_url) return; $('zoom').innerHTML = `<img src="${esc(atual.foto_url)}" alt="${esc(atual.nome)}">`; $('zoom').classList.add('open'); });
+  let imagens = [], imgIdx = 0;
+  function mostrarImagem(i) {
+    imgIdx = i;
+    const im = imagens[i];
+    $('pmMedia').innerHTML = im ? `<img src="${esc(im.url)}" alt="${esc(im.alt)}">` : midia(atual);
+    $('pmThumbs').querySelectorAll('.pm-thumb').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.img) === i)));
+  }
+  function ampliar(im) { if (!im) return; $('zoom').innerHTML = `<img src="${esc(im.url)}" alt="${esc(im.alt)}">`; $('zoom').classList.add('open'); }
+  $('pmThumbs').addEventListener('click', (e) => { const b = e.target.closest('.pm-thumb'); if (b) mostrarImagem(Number(b.dataset.img)); });
+  $('pmMedidas').addEventListener('click', () => { const i = imagens.findIndex((im) => im.rot === 'Medidas'); mostrarImagem(i); ampliar(imagens[i]); });
+  $('pmMedia').addEventListener('click', () => ampliar(imagens[imgIdx]));
   $('zoom').addEventListener('click', () => $('zoom').classList.remove('open'));
   $('pmAdd').addEventListener('click', () => {
     if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha uma opção de ${atual.rotulo.toLowerCase()} para continuar.`; return; }

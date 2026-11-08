@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=5">
 </head>
 <body>
 
@@ -69,13 +69,16 @@
 <div class="product-modal" id="pm" role="dialog" aria-modal="true" aria-labelledby="pmName" hidden>
   <div class="pm-box">
     <button class="close" data-close="pm" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    <div class="pm-media" id="pmMedia" title="Ampliar foto"></div>
+    <div class="pm-gallery">
+      <div class="pm-media" id="pmMedia" title="Ampliar foto"></div>
+      <div class="pm-thumbs" id="pmThumbs" hidden></div>
+    </div>
     <div class="pm-body">
       <h2 class="pm-name" id="pmName"></h2>
       <p class="pm-price" id="pmPrice"></p>
       <p class="pm-desc" id="pmDesc"></p>
       <div id="pmSizesWrap">
-        <p class="label"><span id="pmSizeLabel">Tamanho</span></p>
+        <p class="label"><span id="pmSizeLabel">Tamanho</span><button type="button" class="link" id="pmMedidas" hidden>Tabela de medidas</button></p>
         <div class="sizes" id="pmSizes" role="group" aria-label="Tamanho"></div>
         <p class="size-hint" id="pmSizeHint" aria-live="polite"></p>
       </div>
@@ -108,7 +111,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js"></script>
-<script src="assets/loja.js"></script>
+<script src="assets/config.js?v=5"></script>
+<script src="assets/loja.js?v=5"></script>
 </body>
 </html>

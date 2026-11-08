@@ -7,5 +7,7 @@ window.LOJA_CONFIG = {
   // Enquanto não existirem, o site mostra o texto "RA NUTRIÇÃO" e um espaço reservado.
   LOGO_URL: 'assets/logo.png',
   FOTO_RAFAEL: 'assets/rafael.jpg',
+  // Aparece junto da foto em todo produto cuja escolha se chama "Tamanho"
+  TABELA_MEDIDAS: 'assets/produtos/tabela-medidas-camisa.webp',
   BUCKET: 'loja-produtos'
 };
