@@ -21,6 +21,17 @@
   });
   seExistir(C.FOTO_RAFAEL, (u) => { $('authorPhoto').innerHTML = `<img src="${esc(u)}" alt="Encontros da comunidade com o nutricionista Rafael Albergaria">`; $('authorPhoto').classList.add('loaded'); });
 
+  // ---------- Prazo da lista ----------
+  // A lista vale até o fim do dia configurado em DATA_FECHAMENTO.
+  const fimLista = C.DATA_FECHAMENTO ? new Date(C.DATA_FECHAMENTO + 'T23:59:59') : null;
+  const prazoValido = fimLista && !isNaN(fimLista);
+  const encerrada = () => prazoValido && new Date() > fimLista;
+  const dataPrazo = () => fimLista.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  if (prazoValido) {
+    $('prazo').innerHTML = encerrada() ? `Lista encerrada em <b>${esc(dataPrazo())}</b>. Avisaremos a comunidade quando abrir a próxima.` : `Lista aberta até <b>${esc(dataPrazo())}</b>.`;
+    $('prazo').hidden = false;
+  }
+
   // ---------- Sacola (persistida no navegador) ----------
   const lerSacola = () => { try { return JSON.parse(localStorage.getItem(BAG_KEY)) || []; } catch { return []; } };
   let sacola = lerSacola();
@@ -201,9 +212,9 @@
       foot.innerHTML = `
         <div class="totals"><span>Total estimado</span><strong>${brl(totalSacola())}</strong></div>
         <p class="totals-note">Sem pagamento agora. O valor final é confirmado quando fecharmos a encomenda.</p>
-        <button class="btn block" id="toDados">Continuar</button>
+        ${encerrada() ? `<p class="closed-note">A lista de espera encerrou em ${esc(dataPrazo())}. Avisaremos a comunidade quando abrir a próxima.</p>` : '<button class="btn block" id="toDados">Continuar</button>'}
         <button class="btn ghost block" data-close="drawer" style="margin-top:10px">Continuar escolhendo</button>`;
-      $('toDados').onclick = () => { etapa = 'dados'; renderSacola(); $('drawerBody').scrollTop = 0; };
+      if ($('toDados')) $('toDados').onclick = () => { etapa = 'dados'; renderSacola(); $('drawerBody').scrollTop = 0; };
     } else if (etapa === 'dados') {
       $('drawerTitle').textContent = 'Lista de espera';
       const salvo = lerDados();
@@ -220,6 +231,22 @@
           <div class="field"><label for="fNome">Nome completo</label><input id="fNome" name="nome" autocomplete="name" required maxlength="120" value="${esc(salvo.nome)}"><p class="err" id="eNome"></p></div>
           <div class="field"><label for="fWhats">WhatsApp com DDD</label><input id="fWhats" name="whatsapp" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="(27) 99999-9999" required value="${esc(salvo.whatsapp)}"><p class="err" id="eWhats"></p></div>
           <div class="field"><label for="fEmail">E-mail <em>(opcional)</em></label><input id="fEmail" name="email" type="email" autocomplete="email" maxlength="160" value="${esc(salvo.email)}"><p class="err" id="eEmail"></p></div>
+          <div class="field">
+            <label id="lReceb">Como você prefere receber?</label>
+            <div class="sizes" id="fReceb" role="group" aria-labelledby="lReceb">
+              <button type="button" class="size" data-r="envio" aria-pressed="${salvo.recebimento === 'envio'}">Receber em casa</button>
+              <button type="button" class="size" data-r="retirada" aria-pressed="${salvo.recebimento === 'retirada'}">Retirar pessoalmente</button>
+            </div>
+            <p class="field-hint" id="hReceb"></p>
+            <p class="err" id="eReceb"></p>
+          </div>
+          <div id="envioWrap" hidden>
+            <div class="field"><label for="fCep">CEP de entrega</label><input id="fCep" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" value="${esc(salvo.cep)}"><p class="err" id="eCep"></p></div>
+            <div class="field-row">
+              <div class="field"><label for="fCidade">Cidade</label><input id="fCidade" name="cidade" autocomplete="address-level2" maxlength="80" value="${esc(salvo.cidade)}"><p class="err" id="eCidade"></p></div>
+              <div class="field"><label for="fUf">UF</label><input id="fUf" name="uf" autocomplete="address-level1" maxlength="2" value="${esc(salvo.uf)}"><p class="err" id="eUf"></p></div>
+            </div>
+          </div>
           <input class="hp" name="empresa" id="fHp" tabindex="-1" autocomplete="off" aria-hidden="true">
           <label class="consent"><input type="checkbox" id="fConsent"><span>Concordo que meus dados sejam usados exclusivamente para organizar a lista de interesse e para que a equipe RA Nutrição entre em contato comigo sobre esta encomenda, conforme a Lei Geral de Proteção de Dados (LGPD).</span></label>
           <p class="err" id="eConsent" style="color:var(--err);font-size:12px;margin-top:6px"></p>
@@ -230,6 +257,13 @@
       $('voltar').onclick = () => { guardarDados(); etapa = 'sacola'; renderSacola(); };
       $('fWhats').addEventListener('input', (e) => { e.target.value = mascara(e.target.value); });
       $('fWhats').value = mascara($('fWhats').value);
+      recebimento = salvo.recebimento || null;
+      renderReceb();
+      $('fReceb').addEventListener('click', (e) => { const b = e.target.closest('[data-r]'); if (!b) return; recebimento = b.dataset.r; erro('receb', ''); renderReceb(); });
+      $('fCep').value = mascaraCep($('fCep').value);
+      $('fCep').addEventListener('input', (e) => { e.target.value = mascaraCep(e.target.value); if (e.target.value.length === 9) { erro('cep', ''); buscarCep(e.target.value); } });
+      $('fCidade').addEventListener('input', () => erro('cidade', ''));
+      $('fUf').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2); erro('uf', ''); });
       $('confirmar').onclick = enviar;
       $('form').addEventListener('submit', (e) => { e.preventDefault(); enviar(); });
     }
@@ -248,7 +282,28 @@
   const DADOS_KEY = 'ra_collection_dados_v1';
   function lerDados() { try { return JSON.parse(sessionStorage.getItem(DADOS_KEY)) || {}; } catch { return {}; } }
   function guardarDados() {
-    try { sessionStorage.setItem(DADOS_KEY, JSON.stringify({ nome: $('fNome')?.value || '', whatsapp: $('fWhats')?.value || '', email: $('fEmail')?.value || '' })); } catch {}
+    try { sessionStorage.setItem(DADOS_KEY, JSON.stringify({ nome: $('fNome')?.value || '', whatsapp: $('fWhats')?.value || '', email: $('fEmail')?.value || '', recebimento, cep: $('fCep')?.value || '', cidade: $('fCidade')?.value || '', uf: $('fUf')?.value || '' })); } catch {}
+  }
+
+  // ---------- Recebimento ----------
+  let recebimento = null; // envio | retirada
+  function renderReceb() {
+    $('fReceb').querySelectorAll('[data-r]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.r === recebimento)));
+    $('envioWrap').hidden = recebimento !== 'envio';
+    $('hReceb').textContent = recebimento === 'envio' ? 'O frete é calculado pelo seu CEP e informado junto com o valor final, antes de qualquer pagamento.'
+      : recebimento === 'retirada' ? 'Combinamos o local e o dia da retirada pelo WhatsApp quando os produtos chegarem.' : '';
+  }
+  function mascaraCep(v) { const d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d; }
+  // Preenche cidade e UF pelo CEP. Se a consulta falhar, a pessoa digita normalmente.
+  async function buscarCep(v) {
+    const d = v.replace(/\D/g, '');
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
+      const j = await r.json();
+      if (j.erro || $('fCep')?.value.replace(/\D/g, '') !== d) return;
+      if (j.localidade) { $('fCidade').value = j.localidade; erro('cidade', ''); }
+      if (j.uf) { $('fUf').value = j.uf; erro('uf', ''); }
+    } catch {}
   }
   function mascara(v) {
     const d = v.replace(/\D/g, '').slice(0, 11);
@@ -258,13 +313,14 @@
     return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
   }
   function erro(campo, msg) {
-    const map = { nome: ['fNome', 'eNome'], whats: ['fWhats', 'eWhats'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'] };
+    const map = { nome: ['fNome', 'eNome'], whats: ['fWhats', 'eWhats'], email: ['fEmail', 'eEmail'], consent: ['fConsent', 'eConsent'], receb: ['fReceb', 'eReceb'], cep: ['fCep', 'eCep'], cidade: ['fCidade', 'eCidade'], uf: ['fUf', 'eUf'] };
     const [inp, er] = map[campo];
     $(er).textContent = msg || '';
-    if (campo !== 'consent') $(inp).setAttribute('aria-invalid', msg ? 'true' : 'false');
+    if (campo !== 'consent' && campo !== 'receb') $(inp).setAttribute('aria-invalid', msg ? 'true' : 'false');
     return !!msg;
   }
 
+  const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
   let enviando = false;
   async function enviar() {
     if (enviando) return;
@@ -275,8 +331,17 @@
     ruim = erro('nome', nome.length < 3 || !nome.includes(' ') ? 'Informe seu nome completo.' : '') || ruim;
     ruim = erro('whats', whats.length < 10 || whats.length > 11 ? 'Informe o WhatsApp com DDD, só números.' : '') || ruim;
     ruim = erro('email', email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? 'Confira o e-mail ou deixe em branco.' : '') || ruim;
+    const envio = recebimento === 'envio';
+    const cep = envio ? $('fCep').value.replace(/\D/g, '') : '';
+    const cidade = envio ? $('fCidade').value.trim().replace(/\s+/g, ' ') : '';
+    const uf = envio ? $('fUf').value.trim().toUpperCase() : '';
+    ruim = erro('receb', !recebimento ? 'Escolha como prefere receber.' : '') || ruim;
+    ruim = erro('cep', envio && cep.length !== 8 ? 'Informe o CEP com 8 números.' : '') || ruim;
+    ruim = erro('cidade', envio && cidade.length < 2 ? 'Informe a cidade.' : '') || ruim;
+    ruim = erro('uf', envio && !UFS.includes(uf) ? 'Informe a sigla do estado.' : '') || ruim;
     ruim = erro('consent', !$('fConsent').checked ? 'Marque a autorização para continuar.' : '') || ruim;
-    if (ruim) { document.querySelector('[aria-invalid="true"]')?.focus(); return; }
+    if (ruim) { (document.querySelector('[aria-invalid="true"]') || (!recebimento && $('fReceb').querySelector('button')))?.focus(); return; }
+    if (encerrada()) { $('formErr').textContent = 'A lista de espera já encerrou.'; $('formErr').hidden = false; return; }
     if ($('fHp').value) return; // robô
 
     enviando = true;
@@ -285,12 +350,15 @@
     guardarDados();
     const { data, error } = await sb.rpc('loja_criar_pedido', {
       p_nome: nome, p_whatsapp: whats, p_email: email || null, p_consentimento: true,
+      p_recebimento: recebimento, p_cep: cep || null, p_cidade: cidade || null, p_uf: uf || null,
       p_itens: sacola.map((i) => ({ produto_id: i.produto_id, tamanho: i.tamanho, quantidade: i.quantidade }))
     });
     enviando = false;
     if (error) {
       btn.disabled = false; btn.textContent = 'Confirmar interesse e entrar na lista de espera';
       const m = /aguarde/i.test(error.message) ? 'Seu pedido já foi recebido. Se quiser enviar outro, aguarde alguns segundos.'
+        : /encerrad/i.test(error.message) ? 'A lista de espera já encerrou.'
+        : /CEP|recebimento|cidade|estado/i.test(error.message) ? 'Confira a forma de recebimento, o CEP, a cidade e o estado.'
         : /indispon|inválido/i.test(error.message) ? 'Um dos produtos mudou. Atualize a página e confira a sacola.'
         : 'Não foi possível registrar agora. Confira sua internet e tente de novo.';
       $('formErr').textContent = m; $('formErr').hidden = false;
@@ -304,7 +372,7 @@
     $('drawerBody').innerHTML = `<div class="success">
       <div class="check"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
       <h3>Você está na lista de espera, ${esc(primeiro)}.</h3>
-      <p>Recebemos o seu interesse. Assim que reunirmos os pedidos, organizaremos a produção e entraremos em contato pelo WhatsApp.</p>
+      <p>Recebemos o seu interesse. Assim que ${prazoValido ? 'a lista fechar, em ' + esc(dataPrazo()) + ',' : 'reunirmos os pedidos,'} organizaremos a produção e entraremos em contato pelo WhatsApp com o valor final${recebimento === 'envio' ? ' e o frete' : ''}.</p>
       <p>Nenhum pagamento foi feito.</p>
       <span class="code">PEDIDO Nº ${esc(data?.codigo)}</span>
     </div>`;

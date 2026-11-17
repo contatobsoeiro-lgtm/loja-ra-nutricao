@@ -58,7 +58,7 @@
   // ---------- Pedidos ----------
   async function carregarPedidos() {
     const { data, error } = await sb.from('loja_pedidos')
-      .select('id,codigo,nome,whatsapp,email,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,quantidade,preco_unitario,subtotal)')
+      .select('id,codigo,nome,whatsapp,email,recebimento,cep,cidade,uf,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,quantidade,preco_unitario,subtotal)')
       .order('criado_em', { ascending: false }).limit(5000);
     if (error) { $('lista').innerHTML = `<p class="empty">Erro ao carregar: ${esc(error.message)}</p>`; return; }
     pedidos = data;
@@ -92,7 +92,12 @@
     const f = (y) => y.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     return { k: ymd(seg), rot: `${f(seg)} a ${f(dom)}` };
   }
-  let analise = { tempo: [], prods: [] };
+  let analise = { tempo: [], prods: [], destinos: [] };
+  const cepFmt = (c) => (c && c.length === 8 ? `${c.slice(0, 5)}-${c.slice(5)}` : c || '');
+  const RECEB = { envio: 'Envio', retirada: 'Retirada' };
+  // agrupa envios por estado; retirada e pedidos antigos (sem a informação) ficam em linhas próprias
+  const destino = (p) => (p.recebimento === 'retirada' ? 'Retirada' : p.recebimento === 'envio' ? `Envio · ${p.uf || 'UF não informada'}` : 'Não informado');
+  const entrega = (p) => (p.recebimento === 'envio' ? `Envio para ${[p.cidade, p.uf].filter(Boolean).join('/') || 'endereço a confirmar'}${p.cep ? ' · CEP ' + cepFmt(p.cep) : ''}` : p.recebimento === 'retirada' ? 'Retirada pessoalmente' : 'Entrega não informada');
   function renderAnalise() {
     if (!pedidos) return;
     const [de, ate] = intervalo();
@@ -136,6 +141,19 @@
     html += `<tr class="grp"><td>Total</td><td></td><td class="n">${totP}</td><td></td><td class="n">${brl(totV)}</td></tr></tbody></table>`;
     $('aProdutos').innerHTML = analise.prods.length ? html : '<p class="empty">Nenhum produto pedido neste período.</p>';
 
+    // por destino: é a base para cotar o frete da remessa
+    const md = new Map();
+    ok.forEach((p) => {
+      const k = destino(p);
+      const r = md.get(k) || { destino: k, pedidos: 0, pecas: 0, valor: 0 };
+      r.pedidos++; r.pecas += pecas(p); r.valor += Number(p.total_estimado); md.set(k, r);
+    });
+    const fim = (d) => (d === 'Retirada' ? 1 : d === 'Não informado' ? 2 : 0);
+    analise.destinos = [...md.values()].sort((a, b) => fim(a.destino) - fim(b.destino) || b.pedidos - a.pedidos || a.destino.localeCompare(b.destino, 'pt-BR'));
+    $('aDestino').innerHTML = analise.destinos.length ? `<table class="cons"><thead><tr><th>Destino</th><th class="n">Pedidos</th><th class="n">Peças</th><th class="n">Valor</th></tr></thead><tbody>
+      ${analise.destinos.map((r) => `<tr><td>${esc(r.destino)}</td><td class="n">${r.pedidos}</td><td class="n">${r.pecas}</td><td class="n">${brl(r.valor)}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="empty">Nenhum pedido neste período.</p>';
+
     // por status (inclui cancelados, pra mostrar o funil completo)
     $('aStatus').innerHTML = Object.entries(STATUS).map(([k, v]) => {
       const l = noPeriodo.filter((p) => p.status === k);
@@ -150,6 +168,8 @@
     analise.tempo.forEach((r) => linhas.push([r.rot, r.pedidos, r.pecas, num(r.valor)]));
     linhas.push([], ['Produto', 'Opção', 'Quantidade', 'Preço unitário', 'Valor']);
     analise.prods.forEach((r) => linhas.push([r.produto, r.opcao, r.qtd, num(r.preco), num(r.valor)]));
+    linhas.push([], ['Destino', 'Pedidos', 'Peças', 'Valor']);
+    analise.destinos.forEach((r) => linhas.push([r.destino, r.pedidos, r.pecas, num(r.valor)]));
     baixarCSV(`analise-ra-collection-${ymd(de > new Date(2001, 0, 1) ? de : new Date())}.csv`, linhas);
   };
   function filtrados() {
@@ -160,7 +180,7 @@
       if (st === 'ativos' && p.status === 'cancelado') return false;
       if (st && st !== 'ativos' && p.status !== st) return false;
       if (!q) return true;
-      return p.nome.toLowerCase().includes(q) || (qd && p.whatsapp.includes(qd)) || String(p.codigo) === q || (p.email || '').toLowerCase().includes(q);
+      return p.nome.toLowerCase().includes(q) || (p.cidade || '').toLowerCase().includes(q) || (qd.length >= 5 && (p.cep || '').includes(qd)) || (qd && p.whatsapp.includes(qd)) || String(p.codigo) === q || (p.email || '').toLowerCase().includes(q);
     });
   }
   function renderKpis() {
@@ -183,7 +203,7 @@
       return `<details class="order" data-id="${p.id}">
         <summary>
           <span class="num">Nº ${p.codigo}</span>
-          <span class="who"><strong>${esc(p.nome)}</strong><small>${pecas} ${pecas === 1 ? 'peça' : 'peças'}</small></span>
+          <span class="who"><strong>${esc(p.nome)}</strong><small>${pecas} ${pecas === 1 ? 'peça' : 'peças'} · ${esc(p.recebimento === 'envio' ? [p.cidade, p.uf].filter(Boolean).join('/') || 'Envio' : RECEB[p.recebimento] || 'Entrega não informada')}</small></span>
           <span class="when">${dataBR(p.criado_em)}</span>
           <span class="tot">${brl(p.total_estimado)}</span>
           <span><span class="pill ${p.status}">${STATUS[p.status]}</span></span>
@@ -199,6 +219,7 @@
             <div class="contact">
               <a href="https://wa.me/${esc(p.whatsapp)}?text=${msg}" target="_blank" rel="noopener">WhatsApp: ${esc(fone(p.whatsapp))} ↗</a><br>
               ${p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '<span style="color:var(--muted);font-size:13px">Sem e-mail</span>'}
+              <br><span style="font-size:13px">${esc(entrega(p))}</span>
             </div>
             <label>Status</label>
             <select class="sel" data-f="status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${k === p.status ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -251,8 +272,8 @@
   }
   const num = (v) => Number(v).toFixed(2).replace('.', ',');
   $('csvPedidos').onclick = () => {
-    const linhas = [['Pedido', 'Data', 'Nome', 'WhatsApp', 'E-mail', 'Status', 'Produto', 'Tamanho', 'Quantidade', 'Preço unitário', 'Subtotal', 'Total do pedido', 'Observação']];
-    filtrados().forEach((p) => p.loja_pedido_itens.forEach((i) => linhas.push([p.codigo, dataBR(p.criado_em), p.nome, fone(p.whatsapp), p.email, STATUS[p.status], i.produto_nome, i.tamanho || 'Único', i.quantidade, num(i.preco_unitario), num(i.subtotal), num(p.total_estimado), p.observacao_admin])));
+    const linhas = [['Pedido', 'Data', 'Nome', 'WhatsApp', 'E-mail', 'Recebimento', 'CEP', 'Cidade', 'UF', 'Status', 'Produto', 'Tamanho', 'Quantidade', 'Preço unitário', 'Subtotal', 'Total do pedido', 'Observação']];
+    filtrados().forEach((p) => p.loja_pedido_itens.forEach((i) => linhas.push([p.codigo, dataBR(p.criado_em), p.nome, fone(p.whatsapp), p.email, RECEB[p.recebimento] || '', cepFmt(p.cep), p.cidade, p.uf, STATUS[p.status], i.produto_nome, i.tamanho || 'Único', i.quantidade, num(i.preco_unitario), num(i.subtotal), num(p.total_estimado), p.observacao_admin])));
     baixarCSV(`pedidos-ra-collection-${new Date().toISOString().slice(0, 10)}.csv`, linhas);
   };
 

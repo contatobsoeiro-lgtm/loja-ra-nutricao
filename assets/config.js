@@ -10,5 +10,9 @@ window.LOJA_CONFIG = {
   FOTO_RAFAEL: 'assets/comunidade.jpg',
   // Aparece junto da foto em todo produto cuja escolha se chama "Tamanho"
   TABELA_MEDIDAS: 'assets/produtos/tabela-medidas-camisa.webp',
-  BUCKET: 'loja-produtos'
+  BUCKET: 'loja-produtos',
+  // Último dia para entrar na lista, no formato 'AAAA-MM-DD' (ex.: '2026-11-30').
+  // Enquanto for null, a loja não mostra prazo e a lista fica aberta.
+  // Depois dessa data a loja continua no ar, mas não recebe novos pedidos.
+  DATA_FECHAMENTO: null
 };

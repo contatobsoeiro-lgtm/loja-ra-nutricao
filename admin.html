@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css?v=7">
+<link rel="stylesheet" href="assets/style.css?v=8">
 <style>
   .wrap { max-width: 1200px; margin: 0 auto; padding: 32px var(--gutter) 96px; }
   .login { max-width: 400px; margin: 10vh auto; padding: 0 16px; }
@@ -148,6 +148,8 @@
     <div class="table-scroll" id="aTempo"></div>
     <h3 class="sub-title">Por produto</h3>
     <div class="table-scroll" id="aProdutos"></div>
+    <h3 class="sub-title">Por destino</h3>
+    <div class="table-scroll" id="aDestino"></div>
     <h3 class="sub-title">Por status</h3>
     <div class="kpis" id="aStatus"></div>
   </section>
@@ -155,7 +157,7 @@
   <section data-view="pedidos" hidden>
     <div class="kpis" id="kpis"></div>
     <div class="toolbar">
-      <input id="busca" type="search" placeholder="Buscar por nome, WhatsApp ou nº do pedido">
+      <input id="busca" type="search" placeholder="Buscar por nome, WhatsApp, cidade, CEP ou nº do pedido">
       <select id="fStatus" class="sel">
         <option value="">Todos os status</option>
         <option value="ativos" selected>Ativos (sem cancelados)</option>
@@ -184,7 +186,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js?v=7"></script>
-<script src="assets/admin.js?v=7"></script>
+<script src="assets/config.js?v=8"></script>
+<script src="assets/admin.js?v=8"></script>
 </body>
 </html>
