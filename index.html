@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>RA Nutrição | Collection</title>
+<title>RA Nutrição | Loja da comunidade</title>
 <meta name="description" content="Produtos exclusivos para quem faz parte da comunidade RA Nutrição. Entre na lista de espera, sem pagamento agora.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F5EFE6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/loja.css?v=9">
+<link rel="stylesheet" href="assets/loja.css?v=10">
 </head>
 <body>
 
@@ -30,8 +30,8 @@
 <main>
   <section class="hero">
     <div class="hero-text">
-      <h1>RA Nutrição Collection</h1>
-      <p class="hero-sub">As peças da nossa comunidade. Escolha as suas e garanta seu lugar na lista.</p>
+      <h1>A loja da nossa comunidade</h1>
+      <p class="hero-sub">Peças feitas para quem vive a consultoria com a gente. Escolha as suas e garanta seu lugar na lista.</p>
       <a class="btn" href="#colecao">Ver a coleção</a>
       <ul class="fatos">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Sem pagamento agora</li>
@@ -45,9 +45,9 @@
   <section class="catalog" id="colecao" aria-labelledby="catTitle">
     <div class="catalog-head">
       <h2 id="catTitle">A coleção</h2>
-      <p id="catCount"></p>
+      <div class="cats" id="cats" role="group" aria-label="Filtrar por categoria" hidden></div>
     </div>
-    <div class="grid" id="grid"><p class="loading">Carregando a coleção...</p></div>
+    <div id="grid"><p class="loading">Carregando a coleção...</p></div>
   </section>
 
   <section class="passos" aria-labelledby="passosTitle">
@@ -62,7 +62,7 @@
   <section class="author" aria-labelledby="authorTitle">
     <div class="author-photo" id="authorPhoto"></div>
     <div class="author-text">
-      <h2 id="authorTitle">Feita para quem vive a consultoria com a gente.</h2>
+      <h2 id="authorTitle">Quem é da comunidade se reconhece de longe.</h2>
       <p>São peças pensadas para acompanhar a sua rotina, do treino ao dia a dia.</p>
       <p class="sign">Rafael Albergaria<small>Nutricionista</small></p>
     </div>
@@ -71,7 +71,7 @@
 
 <footer class="footer">
   <strong>Nutricionista Rafael Albergaria</strong>
-  <span>RA Nutrição Collection. Lista de espera, sem cobrança pelo site.</span>
+  <span>RA Nutrição, loja da comunidade. Lista de espera, sem cobrança pelo site.</span>
 </footer>
 
 <button type="button" class="mob-bar" id="mobBar" hidden></button>
@@ -90,6 +90,11 @@
       <h2 class="pm-name" id="pmName"></h2>
       <p class="pm-price" id="pmPrice"></p>
       <p class="pm-desc" id="pmDesc"></p>
+      <div id="pmCoresWrap" hidden>
+        <p class="label"><span>Cor</span></p>
+        <div class="sizes" id="pmCores" role="group" aria-label="Cor"></div>
+        <p class="size-hint" id="pmCorHint" aria-live="polite"></p>
+      </div>
       <div id="pmSizesWrap">
         <p class="label"><span id="pmSizeLabel">Tamanho</span><button type="button" class="link" id="pmMedidas" hidden>Tabela de medidas</button></p>
         <div class="sizes" id="pmSizes" role="group" aria-label="Tamanho"></div>
@@ -124,7 +129,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="assets/config.js?v=9"></script>
-<script src="assets/loja.js?v=9"></script>
+<script src="assets/config.js?v=10"></script>
+<script src="assets/loja.js?v=10"></script>
 </body>
 </html>

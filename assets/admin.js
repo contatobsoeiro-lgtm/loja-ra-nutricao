@@ -58,7 +58,7 @@
   // ---------- Pedidos ----------
   async function carregarPedidos() {
     const { data, error } = await sb.from('loja_pedidos')
-      .select('id,codigo,nome,whatsapp,email,recebimento,cep,cidade,uf,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,quantidade,preco_unitario,subtotal)')
+      .select('id,codigo,nome,whatsapp,email,recebimento,cep,cidade,uf,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,cor,quantidade,preco_unitario,subtotal)')
       .order('criado_em', { ascending: false }).limit(5000);
     if (error) { $('lista').innerHTML = `<p class="empty">Erro ao carregar: ${esc(error.message)}</p>`; return; }
     pedidos = data;
@@ -93,6 +93,8 @@
     return { k: ymd(seg), rot: `${f(seg)} a ${f(dom)}` };
   }
   let analise = { tempo: [], prods: [], destinos: [] };
+  // cor e tamanho de um item numa coluna só: "Preta · M", "Preta", "M" ou "Único"
+  const opc = (i) => [i.cor, i.tamanho && i.tamanho !== 'Único' ? i.tamanho : ''].filter(Boolean).join(' · ') || 'Único';
   const cepFmt = (c) => (c && c.length === 8 ? `${c.slice(0, 5)}-${c.slice(5)}` : c || '');
   const RECEB = { envio: 'Envio', retirada: 'Retirada' };
   // agrupa envios por estado; retirada e pedidos antigos (sem a informação) ficam em linhas próprias
@@ -124,12 +126,12 @@
     // por produto e opção
     const mp = new Map();
     ok.forEach((p) => p.loja_pedido_itens.forEach((i) => {
-      const k = `${i.produto_nome}::${i.tamanho || 'Único'}`;
-      const r = mp.get(k) || { produto: i.produto_nome, opcao: i.tamanho || 'Único', qtd: 0, valor: 0, preco: Number(i.preco_unitario) };
+      const k = `${i.produto_nome}::${opc(i)}`;
+      const r = mp.get(k) || { produto: i.produto_nome, opcao: opc(i), cor: i.cor || '', tam: i.tamanho || 'Único', qtd: 0, valor: 0, preco: Number(i.preco_unitario) };
       r.qtd += i.quantidade; r.valor += Number(i.subtotal); mp.set(k, r);
     }));
     const pos = (t) => { const i = ORDEM_TAM.indexOf(t); return i < 0 ? 50 : i; };
-    analise.prods = [...mp.values()].sort((a, b) => a.produto.localeCompare(b.produto, 'pt-BR') || pos(a.opcao) - pos(b.opcao) || a.opcao.localeCompare(b.opcao));
+    analise.prods = [...mp.values()].sort((a, b) => a.produto.localeCompare(b.produto, 'pt-BR') || a.cor.localeCompare(b.cor, 'pt-BR') || pos(a.tam) - pos(b.tam) || a.opcao.localeCompare(b.opcao));
     const grupos = {};
     analise.prods.forEach((r) => (grupos[r.produto] ||= []).push(r));
     let html = '<table class="cons"><thead><tr><th>Produto</th><th>Opção</th><th class="n">Qtd</th><th class="n">Preço unit.</th><th class="n">Valor</th></tr></thead><tbody>';
@@ -170,7 +172,7 @@
     analise.prods.forEach((r) => linhas.push([r.produto, r.opcao, r.qtd, num(r.preco), num(r.valor)]));
     linhas.push([], ['Destino', 'Pedidos', 'Peças', 'Valor']);
     analise.destinos.forEach((r) => linhas.push([r.destino, r.pedidos, r.pecas, num(r.valor)]));
-    baixarCSV(`analise-ra-collection-${ymd(de > new Date(2001, 0, 1) ? de : new Date())}.csv`, linhas);
+    baixarCSV(`analise-loja-comunidade-${ymd(de > new Date(2001, 0, 1) ? de : new Date())}.csv`, linhas);
   };
   function filtrados() {
     const q = $('busca').value.trim().toLowerCase();
@@ -199,7 +201,7 @@
       const itens = p.loja_pedido_itens;
       const pecas = itens.reduce((a, i) => a + i.quantidade, 0);
       const primeiro = esc(p.nome.split(' ')[0]);
-      const msg = encodeURIComponent(`Olá, ${p.nome.split(' ')[0]}! Aqui é da RA Nutrição, sobre o seu pedido nº ${p.codigo} da Collection.`);
+      const msg = encodeURIComponent(`Olá, ${p.nome.split(' ')[0]}! Aqui é da RA Nutrição, sobre o seu pedido nº ${p.codigo} da loja da comunidade.`);
       return `<details class="order" data-id="${p.id}">
         <summary>
           <span class="num">Nº ${p.codigo}</span>
@@ -210,8 +212,8 @@
         </summary>
         <div class="order-body">
           <div>
-            <table class="items"><thead><tr><th>Produto</th><th>Tam.</th><th>Qtd</th><th>Subtotal</th></tr></thead><tbody>
-              ${itens.map((i) => `<tr><td>${esc(i.produto_nome)}</td><td>${esc(i.tamanho || 'Único')}</td><td>${i.quantidade}</td><td>${brl(i.subtotal)}</td></tr>`).join('')}
+            <table class="items"><thead><tr><th>Produto</th><th>Opção</th><th>Qtd</th><th>Subtotal</th></tr></thead><tbody>
+              ${itens.map((i) => `<tr><td>${esc(i.produto_nome)}</td><td>${esc(opc(i))}</td><td>${i.quantidade}</td><td>${brl(i.subtotal)}</td></tr>`).join('')}
               <tr><td colspan="3"><strong>Total estimado</strong></td><td><strong>${brl(p.total_estimado)}</strong></td></tr>
             </tbody></table>
           </div>
@@ -272,9 +274,9 @@
   }
   const num = (v) => Number(v).toFixed(2).replace('.', ',');
   $('csvPedidos').onclick = () => {
-    const linhas = [['Pedido', 'Data', 'Nome', 'WhatsApp', 'E-mail', 'Recebimento', 'CEP', 'Cidade', 'UF', 'Status', 'Produto', 'Tamanho', 'Quantidade', 'Preço unitário', 'Subtotal', 'Total do pedido', 'Observação']];
-    filtrados().forEach((p) => p.loja_pedido_itens.forEach((i) => linhas.push([p.codigo, dataBR(p.criado_em), p.nome, fone(p.whatsapp), p.email, RECEB[p.recebimento] || '', cepFmt(p.cep), p.cidade, p.uf, STATUS[p.status], i.produto_nome, i.tamanho || 'Único', i.quantidade, num(i.preco_unitario), num(i.subtotal), num(p.total_estimado), p.observacao_admin])));
-    baixarCSV(`pedidos-ra-collection-${new Date().toISOString().slice(0, 10)}.csv`, linhas);
+    const linhas = [['Pedido', 'Data', 'Nome', 'WhatsApp', 'E-mail', 'Recebimento', 'CEP', 'Cidade', 'UF', 'Status', 'Produto', 'Cor', 'Tamanho', 'Quantidade', 'Preço unitário', 'Subtotal', 'Total do pedido', 'Observação']];
+    filtrados().forEach((p) => p.loja_pedido_itens.forEach((i) => linhas.push([p.codigo, dataBR(p.criado_em), p.nome, fone(p.whatsapp), p.email, RECEB[p.recebimento] || '', cepFmt(p.cep), p.cidade, p.uf, STATUS[p.status], i.produto_nome, i.cor || '', i.tamanho || 'Único', i.quantidade, num(i.preco_unitario), num(i.subtotal), num(p.total_estimado), p.observacao_admin])));
+    baixarCSV(`pedidos-loja-comunidade-${new Date().toISOString().slice(0, 10)}.csv`, linhas);
   };
 
   // ---------- Encomenda coletiva ----------
@@ -285,9 +287,9 @@
     const { data, error } = await sb.from('loja_consolidado').select('*');
     if (error) { $('consolidado').innerHTML = `<p class="empty">Erro: ${esc(error.message)}</p>`; return; }
     const pos = (t) => { const i = ORDEM_TAM.indexOf(t); return i < 0 ? 99 : i; };
-    consolidado = data.sort((a, b) => a.produto_nome.localeCompare(b.produto_nome, 'pt-BR') || pos(a.tamanho) - pos(b.tamanho));
+    consolidado = data.sort((a, b) => a.produto_nome.localeCompare(b.produto_nome, 'pt-BR') || (a.cor || '').localeCompare(b.cor || '', 'pt-BR') || pos(a.tamanho) - pos(b.tamanho));
     if (!consolidado.length) { $('consolidado').innerHTML = '<p class="empty">Nada para encomendar ainda.</p>'; return; }
-    let html = '<table class="cons"><thead><tr><th>Produto</th><th>Tamanho</th><th class="n">Quantidade</th><th class="n">Pedidos</th><th class="n">Valor estimado</th></tr></thead><tbody>';
+    let html = '<table class="cons"><thead><tr><th>Produto</th><th>Opção</th><th class="n">Quantidade</th><th class="n">Pedidos</th><th class="n">Valor estimado</th></tr></thead><tbody>';
     const grupos = {};
     consolidado.forEach((r) => (grupos[r.produto_nome] ||= []).push(r));
     let totQ = 0, totV = 0;
@@ -295,15 +297,15 @@
       const q = rs.reduce((s, r) => s + r.quantidade, 0), v = rs.reduce((s, r) => s + Number(r.valor_estimado), 0);
       totQ += q; totV += v;
       html += `<tr class="grp"><td>${esc(nome)}</td><td></td><td class="n">${q}</td><td></td><td class="n">${brl(v)}</td></tr>`;
-      if (rs.length > 1 || rs[0].tamanho !== 'Único') rs.forEach((r) => { html += `<tr><td></td><td>${esc(r.tamanho)}</td><td class="n">${r.quantidade}</td><td class="n">${r.pedidos}</td><td class="n">${brl(r.valor_estimado)}</td></tr>`; });
+      if (rs.length > 1 || rs[0].tamanho !== 'Único' || rs[0].cor) rs.forEach((r) => { html += `<tr><td></td><td>${esc(opc(r))}</td><td class="n">${r.quantidade}</td><td class="n">${r.pedidos}</td><td class="n">${brl(r.valor_estimado)}</td></tr>`; });
     });
     html += `<tr class="grp"><td>Total</td><td></td><td class="n">${totQ}</td><td></td><td class="n">${brl(totV)}</td></tr></tbody></table>`;
     $('consolidado').innerHTML = html;
   }
   $('csvEncomenda').onclick = () => {
-    const linhas = [['Produto', 'Tamanho', 'Quantidade', 'Pedidos', 'Valor estimado']];
-    consolidado.forEach((r) => linhas.push([r.produto_nome, r.tamanho, r.quantidade, r.pedidos, num(r.valor_estimado)]));
-    baixarCSV(`encomenda-ra-collection-${new Date().toISOString().slice(0, 10)}.csv`, linhas);
+    const linhas = [['Produto', 'Cor', 'Tamanho', 'Quantidade', 'Pedidos', 'Valor estimado']];
+    consolidado.forEach((r) => linhas.push([r.produto_nome, r.cor || '', r.tamanho, r.quantidade, r.pedidos, num(r.valor_estimado)]));
+    baixarCSV(`encomenda-loja-comunidade-${new Date().toISOString().slice(0, 10)}.csv`, linhas);
   };
 
   // ---------- Produtos ----------
@@ -313,6 +315,8 @@
     produtos = data; renderProdutos();
   }
   function renderProdutos() {
+    if (!$('catList')) document.body.insertAdjacentHTML('beforeend', '<datalist id="catList"></datalist>');
+    $('catList').innerHTML = [...new Set(['Camisas', 'Acessórios', ...produtos.map((p) => p.categoria).filter(Boolean)])].map((c) => `<option value="${esc(c)}">`).join('');
     $('prods').innerHTML = produtos.map((p) => `
       <form class="prod ${p.ativo ? '' : 'off'}" data-id="${p.id}">
         <div>
@@ -325,6 +329,8 @@
           <div><label>Ordem</label><input class="inp" name="ordem" type="number" value="${p.ordem}"></div>
           <div><label>Nome da escolha</label><input class="inp" name="rotulo" value="${esc(p.rotulo_opcoes || 'Tamanho')}" placeholder="Tamanho" maxlength="30"></div>
           <div style="grid-column: span 2"><label>Opções</label><input class="inp" name="tamanhos" value="${esc(p.tamanhos.join(', '))}" placeholder="PP, P, M, G, GG, XG"><p class="hint">Separe por vírgula. Vazio = tamanho único, sem escolha.</p></div>
+          <div><label>Categoria</label><input class="inp" name="categoria" value="${esc(p.categoria || '')}" placeholder="Camisas" maxlength="40" list="catList"></div>
+          <div style="grid-column: span 2"><label>Cores</label><input class="inp" name="cores" value="${esc((p.cores || []).join(', '))}" placeholder="Preta, Clara"><p class="hint">Separe por vírgula. Vazio = produto sem escolha de cor.</p></div>
           <div class="full"><label>Descrição</label><textarea class="inp" name="descricao" maxlength="1200">${esc(p.descricao)}</textarea></div>
           <div class="prod-actions">
             <button class="btn sm" type="submit">Salvar</button>
@@ -343,7 +349,7 @@
     const rotulo = String(fd.get('rotulo')).trim() || 'Tamanho';
     // tamanhos de roupa ficam em maiúsculas; outras opções (ex.: modelo da canga) mantêm o texto como foi digitado
     const tam = String(fd.get('tamanhos')).split(',').map((t) => t.trim()).filter(Boolean).map((t) => (rotulo.toLowerCase() === 'tamanho' ? t.toUpperCase() : t));
-    const upd = { nome: fd.get('nome').trim(), preco, ordem: Number(fd.get('ordem')) || 0, tamanhos: [...new Set(tam)], rotulo_opcoes: rotulo, descricao: fd.get('descricao').trim(), ativo: f.ativo.checked };
+    const upd = { nome: fd.get('nome').trim(), preco, ordem: Number(fd.get('ordem')) || 0, tamanhos: [...new Set(tam)], cores: [...new Set(String(fd.get('cores')).split(',').map((c) => c.trim()).filter(Boolean))], categoria: String(fd.get('categoria')).trim() || 'Acessórios', rotulo_opcoes: rotulo, descricao: fd.get('descricao').trim(), ativo: f.ativo.checked };
     const { error } = await sb.from('loja_produtos').update(upd).eq('id', id);
     if (error) return toast('Erro ao salvar: ' + error.message);
     Object.assign(produtos.find((p) => p.id === id), upd);

@@ -10,6 +10,7 @@
   let produtos = [];
   let atual = null;      // produto aberto
   let tamanho = null;    // tamanho escolhido
+  let cor = null;        // cor escolhida (só em produtos com mais de uma cor)
   let qtd = 1;
   let etapa = 'sacola';  // sacola | dados | sucesso
 
@@ -33,7 +34,7 @@
   const lerSacola = () => { try { return JSON.parse(localStorage.getItem(BAG_KEY)) || []; } catch { return []; } };
   let sacola = lerSacola();
   const salvar = () => { try { localStorage.setItem(BAG_KEY, JSON.stringify(sacola)); } catch {} atualizarContador(); };
-  const chave = (pid, t) => `${pid}::${t || ''}`;
+  const chave = (pid, t, c) => `${pid}::${t || ''}::${c || ''}`;
   const prod = (id) => produtos.find((p) => p.id === id);
 
   function atualizarContador() {
@@ -52,6 +53,7 @@
       const p = prod(i.produto_id);
       if (!p) return false;
       if (p.tamanhos.length && !p.tamanhos.includes(i.tamanho)) return false;
+      if (p.cores.length && !p.cores.includes(i.cor)) return false;
       return true;
     });
     salvar();
@@ -59,11 +61,11 @@
 
   const totalSacola = () => sacola.reduce((s, i) => s + i.quantidade * Number(prod(i.produto_id)?.preco || 0), 0);
 
-  function adicionar(p, t, q) {
-    const k = chave(p.id, t);
-    const ex = sacola.find((i) => chave(i.produto_id, i.tamanho) === k);
+  function adicionar(p, t, q, c) {
+    const k = chave(p.id, t, c);
+    const ex = sacola.find((i) => chave(i.produto_id, i.tamanho, i.cor) === k);
     if (ex) ex.quantidade = Math.min(MAX_QTD, ex.quantidade + q);
-    else sacola.push({ produto_id: p.id, tamanho: t || null, quantidade: q });
+    else sacola.push({ produto_id: p.id, tamanho: t || null, cor: c || null, quantidade: q });
     salvar();
   }
 
@@ -84,28 +86,38 @@
   // "Camisa Nexus Club | Modelo 01" vira título "Camisa Nexus Club" e linha de apoio "Modelo 01"
   const partes = (nome) => { const [t, ...r] = String(nome).split('|'); return [t.trim(), r.join('|').trim()]; };
   const nomeLimpo = (nome) => partes(nome).filter(Boolean).join(', ');
+  // "Preta, tamanho M" / "Preta" / "Tamanho M": como as escolhas de um item aparecem na sacola
+  const escolhas = (p, i) => [i.cor, i.tamanho ? `${p.rotulo.toLowerCase()} ${i.tamanho}` : ''].filter(Boolean).join(', ');
+  const COR_HEX = { preta: '#2B2A2E', preto: '#2B2A2E', clara: '#EDE4D6', 'off-white': '#EDE4D6', branca: '#FFFFFF', branco: '#FFFFFF', creme: '#EDE4D6', 'lilás': '#8C6FD6' };
   const faixaTam = (p) => (!p.tamanhos.length ? 'Tamanho único' : p.rotulo.toLowerCase() === 'tamanho' && p.tamanhos.length > 2 ? `${p.tamanhos[0]} ao ${p.tamanhos[p.tamanhos.length - 1]}` : p.tamanhos.join(', '));
 
   // ---------- Catálogo ----------
   async function carregar() {
-    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
+    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,cores,categoria,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
     if (error) { $('grid').innerHTML = '<p class="empty">Não foi possível carregar a coleção agora. Atualize a página em instantes.</p>'; return; }
-    produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [], rotulo: p.rotulo_opcoes || 'Tamanho' }));
+    produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [], cores: p.cores || [], categoria: (p.categoria || '').trim() || 'Outros', rotulo: p.rotulo_opcoes || 'Tamanho' }));
     sincronizarSacola();
-    $('catCount').textContent = `${produtos.length} ${produtos.length === 1 ? 'peça' : 'peças'}`;
     if (!produtos.length) { $('grid').innerHTML = '<p class="empty">A coleção está sendo preparada. Volte em breve.</p>'; return; }
-    $('grid').innerHTML = produtos.map((p) => {
+    // categorias na ordem em que aparecem (os produtos já vêm ordenados pelo campo Ordem do painel)
+    const cats = [...new Set(produtos.map((p) => p.categoria))];
+    const card = (p) => {
       const [titulo, apoio] = partes(p.nome);
       return `
       <button class="card" data-id="${p.id}" aria-label="${esc(p.nome)}, ${brl(p.preco)}">
         <div class="card-media">${midia(p)}</div>
         <div class="card-body">
           <span class="card-name">${esc(titulo)}</span>
-          <span class="card-meta">${esc([apoio, faixaTam(p)].filter(Boolean).join(', '))}</span>
-          <div class="card-foot"><span class="card-price">${brl(p.preco)}</span><span class="card-cta">${p.tamanhos.length ? 'Escolher ' + esc(p.rotulo.toLowerCase()) : 'Adicionar'}</span></div>
+          <span class="card-meta">${esc([apoio, faixaTam(p), p.cores.length > 1 ? p.cores.length + ' cores' : ''].filter(Boolean).join(', '))}</span>
+          <div class="card-foot"><span class="card-price">${brl(p.preco)}</span><span class="card-cta">${p.cores.length ? 'Escolher opções' : p.tamanhos.length ? 'Escolher ' + esc(p.rotulo.toLowerCase()) : 'Adicionar'}</span></div>
         </div>
       </button>`;
+    };
+    $('grid').innerHTML = cats.map((c) => {
+      const ps = produtos.filter((p) => p.categoria === c);
+      return `<section class="cat" data-cat="${esc(c)}">${cats.length > 1 ? `<h3 class="cat-title">${esc(c)}<small>${ps.length} ${ps.length === 1 ? 'peça' : 'peças'}</small></h3>` : ''}<div class="grid">${ps.map(card).join('')}</div></section>`;
     }).join('');
+    $('cats').hidden = cats.length < 2;
+    $('cats').innerHTML = ['Tudo', ...cats].map((c, i) => `<button type="button" class="cat-btn" aria-pressed="${i === 0}" data-cat="${i === 0 ? '' : esc(c)}">${esc(c)}</button>`).join('');
     // destaque da abertura: o primeiro produto com foto
     const d = produtos.find((p) => p.foto_url);
     if (d) {
@@ -115,6 +127,11 @@
     atualizarContador();
   }
   $('mobBar').addEventListener('click', () => abrirSacola());
+  $('cats').addEventListener('click', (e) => {
+    const b = e.target.closest('.cat-btn'); if (!b) return;
+    $('cats').querySelectorAll('.cat-btn').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    $('grid').querySelectorAll('.cat').forEach((s) => { s.hidden = !!b.dataset.cat && s.dataset.cat !== b.dataset.cat; });
+  });
   $('grid').addEventListener('click', (e) => { const c = e.target.closest('.card'); if (c) abrirProduto(c.dataset.id); });
 
   // ---------- Painéis ----------
@@ -145,6 +162,10 @@
   function abrirProduto(id) {
     atual = prod(id); if (!atual) return;
     tamanho = null; qtd = 1;
+    cor = atual.cores.length === 1 ? atual.cores[0] : null;
+    $('pmCoresWrap').hidden = atual.cores.length < 2;
+    $('pmCores').innerHTML = atual.cores.map((c) => `<button type="button" class="size" aria-pressed="false" data-c="${esc(c)}"><i class="swatch" style="background:${COR_HEX[c.toLowerCase()] || '#CCC'}"></i>${esc(c)}</button>`).join('');
+    $('pmCorHint').textContent = '';
     // galeria: foto do produto e, nas peças com tamanho, a tabela de medidas
     imagens = [];
     if (atual.foto_url) imagens.push({ url: atual.foto_url, rot: 'Foto', alt: atual.nome });
@@ -172,6 +193,12 @@
     $('pmSizes').querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
     $('pmSizeHint').textContent = '';
   });
+  $('pmCores').addEventListener('click', (e) => {
+    const b = e.target.closest('.size'); if (!b) return;
+    cor = b.dataset.c;
+    $('pmCores').querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    $('pmCorHint').textContent = '';
+  });
   function renderQtd() {
     $('pmQtyVal').textContent = qtd;
     $('pmQty').querySelector('[data-q="-1"]').disabled = qtd <= 1;
@@ -191,10 +218,11 @@
   $('pmMedia').addEventListener('click', () => ampliar(imagens[imgIdx]));
   $('zoom').addEventListener('click', () => $('zoom').classList.remove('open'));
   $('pmAdd').addEventListener('click', () => {
-    if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha uma opção de ${atual.rotulo.toLowerCase()} para continuar.`; return; }
-    adicionar(atual, tamanho, qtd);
+    if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha uma opção de ${atual.rotulo.toLowerCase()} para continuar.`; if (atual.cores.length && !cor) $('pmCorHint').textContent = 'Escolha a cor para continuar.'; return; }
+    if (atual.cores.length && !cor) { $('pmCorHint').textContent = 'Escolha a cor para continuar.'; return; }
+    adicionar(atual, tamanho, qtd, cor);
     fechar('pm');
-    toast(`${partes(atual.nome)[0]}${tamanho ? ', tamanho ' + tamanho : ''} na sacola`, 'Ver sacola', abrirSacola);
+    toast(`${partes(atual.nome)[0]}${escolhas(atual, { cor, tamanho }) ? ', ' + escolhas(atual, { cor, tamanho }).toLowerCase() : ''} na sacola`, 'Ver sacola', abrirSacola);
   });
 
   // ---------- Toast ----------
@@ -228,7 +256,7 @@
           <div class="li-media">${midia(p)}</div>
           <div>
             <div class="li-top"><span class="li-name">${esc(nomeLimpo(p.nome))}</span><span class="li-sub">${brl(i.quantidade * p.preco)}</span></div>
-            <p class="li-meta">${i.tamanho ? esc(p.rotulo) + ' ' + esc(i.tamanho) + ', ' : ''}${brl(p.preco)} cada</p>
+            <p class="li-meta">${escolhas(p, i) ? esc(escolhas(p, i)) + ', ' : ''}${brl(p.preco)} cada</p>
             <div class="li-bottom">
               <div class="qty sm"><button type="button" data-a="menos" data-i="${idx}" aria-label="Diminuir" ${i.quantidade <= 1 ? 'disabled' : ''}>−</button><output>${i.quantidade}</output><button type="button" data-a="mais" data-i="${idx}" aria-label="Aumentar" ${i.quantidade >= MAX_QTD ? 'disabled' : ''}>+</button></div>
               <button type="button" class="li-remove" data-a="remover" data-i="${idx}">Remover</button>
@@ -249,7 +277,7 @@
         <button class="back" id="voltar">← Voltar para a sacola</button>
         <h3 class="form-title">Confira seus produtos</h3>
         <div class="review">
-          ${sacola.map((i) => { const p = prod(i.produto_id); return `<div class="review-row"><span>${i.quantidade}× ${esc(nomeLimpo(p.nome))}${i.tamanho ? ', ' + esc(i.tamanho) : ''}</span><span>${brl(i.quantidade * p.preco)}</span></div>`; }).join('')}
+          ${sacola.map((i) => { const p = prod(i.produto_id); return `<div class="review-row"><span>${i.quantidade}× ${esc(nomeLimpo(p.nome))}${escolhas(p, i) ? ', ' + esc(escolhas(p, i)) : ''}</span><span>${brl(i.quantidade * p.preco)}</span></div>`; }).join('')}
           <div class="review-total"><span>Total estimado</span><span>${brl(totalSacola())}</span></div>
         </div>
         <h3 class="form-title">Seus dados</h3>
@@ -378,7 +406,7 @@
     const { data, error } = await sb.rpc('loja_criar_pedido', {
       p_nome: nome, p_whatsapp: whats, p_email: email || null, p_consentimento: true,
       p_recebimento: recebimento, p_cep: cep || null, p_cidade: cidade || null, p_uf: uf || null,
-      p_itens: sacola.map((i) => ({ produto_id: i.produto_id, tamanho: i.tamanho, quantidade: i.quantidade }))
+      p_itens: sacola.map((i) => ({ produto_id: i.produto_id, tamanho: i.tamanho, cor: i.cor || null, quantidade: i.quantidade }))
     });
     enviando = false;
     if (error) {
