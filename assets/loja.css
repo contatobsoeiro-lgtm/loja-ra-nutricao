@@ -258,3 +258,22 @@ img { display: block; max-width: 100%; }
   .toast.show { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* Combos */
+.kits { background: var(--ink); color: #fff; border-radius: var(--r); padding: 20px 22px; margin-bottom: 30px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); gap: 16px 28px; align-items: center; }
+.kits h3 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.kits p { color: #CFCAD6; font-size: 13.5px; margin-top: 4px; }
+.kits ul { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.kits li { background: rgba(255, 255, 255, .08); border-radius: 12px; padding: 12px 14px; display: grid; gap: 2px; }
+.kits li span { font-size: 13px; color: #CFCAD6; }
+.kits li b { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.kits li small { font-size: 12px; color: var(--lilac-mid, #C9B8F0); }
+.totals-linha { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+.totals-linha.desc { color: var(--lilac-deep); font-weight: 500; }
+.totals-linha + .totals { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.review-row.desc { color: var(--lilac-deep); font-weight: 500; }
+.dica-kit { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--lilac-light); border-radius: 12px; padding: 12px 14px; font-size: 13.5px; margin-bottom: 12px; }
+.dica-kit b { font-weight: 600; }
+.dica-kit button { flex: none; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--lilac-deep); color: #fff; font-weight: 600; font-size: 13px; }
+@media (max-width: 980px) { .kits { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .kits { padding: 18px 16px; margin-bottom: 24px; } .kits ul { grid-template-columns: 1fr; gap: 8px; } .kits li { grid-template-columns: 1fr auto; align-items: center; column-gap: 12px; } .kits li small { grid-column: 1 / -1; } .dica-kit { flex-direction: column; align-items: stretch; text-align: left; } }

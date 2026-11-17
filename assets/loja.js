@@ -44,7 +44,7 @@
     $('bagBtn').setAttribute('aria-label', n ? `Abrir sacola, ${n} ${n === 1 ? 'item' : 'itens'}` : 'Abrir sacola');
     // no celular, a sacola vira uma barra fixa no rodapé assim que tem algo dentro
     $('mobBar').hidden = n === 0;
-    $('mobBar').innerHTML = `<span>Ver sacola (${n})</span><span>${produtos.length ? brl(totalSacola()) : ''}</span>`;
+    $('mobBar').innerHTML = `<span>Ver sacola (${n})</span><span>${produtos.length ? brl(totalSacola() - combosDe(sacola).desconto) : ''}</span>`;
   }
 
   // Remove itens de produtos que saíram do catálogo e atualiza nome e preço
@@ -60,6 +60,35 @@
   }
 
   const totalSacola = () => sacola.reduce((s, i) => s + i.quantidade * Number(prod(i.produto_id)?.preco || 0), 0);
+
+  // ---------- Combos ----------
+  // Cada combo junta uma peça de cada grupo (ex.: camisa + garrafa) e dá um desconto fixo.
+  // A conta é a mesma feita no servidor ao registrar o pedido: combos na ordem cadastrada,
+  // cada peça entra em no máximo um combo.
+  let combos = [];
+  function combosDe(itens) {
+    const q = {};
+    itens.forEach((i) => { const g = prod(i.produto_id)?.grupo_combo; if (g) q[g] = (q[g] || 0) + i.quantidade; });
+    let desconto = 0; const aplicados = [];
+    combos.forEach((c) => {
+      const n = Math.min(...c.grupos.map((g) => q[g] || 0));
+      if (n > 0) { c.grupos.forEach((g) => { q[g] -= n; }); desconto += n * Number(c.desconto); aplicados.push({ nome: c.nome, n, desconto: n * Number(c.desconto) }); }
+    });
+    return { desconto: Math.round(desconto * 100) / 100, aplicados };
+  }
+  const maisBarato = (g) => produtos.filter((p) => p.grupo_combo === g).sort((a, b) => a.preco - b.preco)[0];
+  const precoCombo = (c) => { const ps = c.grupos.map(maisBarato); return ps.every(Boolean) ? ps.reduce((s, p) => s + Number(p.preco), 0) - Number(c.desconto) : null; };
+  // Qual peça, somada à sacola, aumenta mais o desconto
+  function dicaCombo() {
+    const atual = combosDe(sacola).desconto; let melhor = null;
+    [...new Set(combos.flatMap((c) => c.grupos))].forEach((g) => {
+      const p = maisBarato(g); if (!p) return;
+      const ganho = Math.round((combosDe([...sacola, { produto_id: p.id, quantidade: 1 }]).desconto - atual) * 100) / 100;
+      if (ganho > 0 && (!melhor || ganho > melhor.ganho)) melhor = { p, ganho };
+    });
+    return melhor;
+  }
+  const linhasDesconto = (cls) => combosDe(sacola).aplicados.map((a) => `<div class="${cls} desc"><span>${a.n > 1 ? a.n + '× ' : ''}${esc(a.nome)}</span><span>− ${brl(a.desconto)}</span></div>`).join('');
 
   function adicionar(p, t, q, c) {
     const k = chave(p.id, t, c);
@@ -96,11 +125,18 @@
 
   // ---------- Catálogo ----------
   async function carregar() {
-    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,cores,fotos_cores,categoria,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
+    const [{ data, error }, rc] = await Promise.all([
+      sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,cores,fotos_cores,categoria,grupo_combo,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome'),
+      sb.from('loja_combos').select('nome,grupos,desconto,ordem').eq('ativo', true).order('ordem')
+    ]);
+    combos = rc.data || []; // se os combos não carregarem, a loja segue sem desconto na tela
     if (error) { $('grid').innerHTML = '<p class="empty">Não foi possível carregar a coleção agora. Atualize a página em instantes.</p>'; return; }
     produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [], cores: p.cores || [], fotos_cores: p.fotos_cores || {}, categoria: (p.categoria || '').trim() || 'Outros', rotulo: p.rotulo_opcoes || 'Tamanho' }));
     sincronizarSacola();
     if (!produtos.length) { $('grid').innerHTML = '<p class="empty">A coleção está sendo preparada. Volte em breve.</p>'; return; }
+    const kits = combos.map((c) => ({ c, preco: precoCombo(c) })).filter((k) => k.preco !== null);
+    $('kits').hidden = !kits.length;
+    $('kits').innerHTML = kits.length ? `<div><h3>Monte um combo e pague menos</h3><p>O desconto entra sozinho na sacola.</p></div><ul>${kits.map((k) => `<li><span>${esc(k.c.nome)}</span><b>${brl(k.preco)}</b><small>Economize ${brl(k.c.desconto)}</small></li>`).join('')}</ul>` : '';
     // categorias na ordem em que aparecem (os produtos já vêm ordenados pelo campo Ordem do painel)
     const cats = [...new Set(produtos.map((p) => p.categoria))];
     const card = (p) => {
@@ -272,8 +308,14 @@
           </div>
         </div>`;
       }).join('');
+      const cb = combosDe(sacola), dica = dicaCombo();
+      if (dica) {
+        body.insertAdjacentHTML('afterbegin', `<div class="dica-kit"><span>Leve também <b>${esc(nomeLimpo(dica.p.nome).split(',')[0].toLowerCase())}</b> e ganhe ${brl(dica.ganho)} de desconto no combo.</span><button type="button" id="dicaVer">Ver produto</button></div>`);
+        $('dicaVer').onclick = () => { fechar('drawer'); abrirProduto(dica.p.id); };
+      }
       foot.innerHTML = `
-        <div class="totals"><span>Total estimado</span><strong>${brl(totalSacola())}</strong></div>
+        ${cb.desconto ? `<div class="totals-linha"><span>Subtotal</span><span>${brl(totalSacola())}</span></div>${linhasDesconto('totals-linha')}` : ''}
+        <div class="totals"><span>Total estimado</span><strong>${brl(totalSacola() - cb.desconto)}</strong></div>
         <p class="totals-note">Sem pagamento agora. O valor final é confirmado quando fecharmos a encomenda.</p>
         ${encerrada() ? `<p class="closed-note">A lista de espera encerrou em ${esc(dataPrazo())}. Avisaremos a comunidade quando abrir a próxima.</p>` : '<button class="btn block" id="toDados">Continuar</button>'}
         <button class="btn ghost block" data-close="drawer" style="margin-top:10px">Continuar escolhendo</button>`;
@@ -286,7 +328,8 @@
         <h3 class="form-title">Confira seus produtos</h3>
         <div class="review">
           ${sacola.map((i) => { const p = prod(i.produto_id); return `<div class="review-row"><span>${i.quantidade}× ${esc(nomeLimpo(p.nome))}${escolhas(p, i) ? ', ' + esc(escolhas(p, i)) : ''}</span><span>${brl(i.quantidade * p.preco)}</span></div>`; }).join('')}
-          <div class="review-total"><span>Total estimado</span><span>${brl(totalSacola())}</span></div>
+          ${linhasDesconto('review-row')}
+          <div class="review-total"><span>Total estimado</span><span>${brl(totalSacola() - combosDe(sacola).desconto)}</span></div>
         </div>
         <h3 class="form-title">Seus dados</h3>
         <p class="form-lead">Usamos só para falar com você sobre esta encomenda.</p>

@@ -58,7 +58,7 @@
   // ---------- Pedidos ----------
   async function carregarPedidos() {
     const { data, error } = await sb.from('loja_pedidos')
-      .select('id,codigo,nome,whatsapp,email,recebimento,cep,cidade,uf,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,cor,quantidade,preco_unitario,subtotal)')
+      .select('id,codigo,nome,whatsapp,email,recebimento,cep,cidade,uf,desconto,combos,total_estimado,status,observacao_admin,criado_em,loja_pedido_itens(produto_nome,tamanho,cor,quantidade,preco_unitario,subtotal)')
       .order('criado_em', { ascending: false }).limit(5000);
     if (error) { $('lista').innerHTML = `<p class="empty">Erro ao carregar: ${esc(error.message)}</p>`; return; }
     pedidos = data;
@@ -214,6 +214,7 @@
           <div>
             <table class="items"><thead><tr><th>Produto</th><th>Opção</th><th>Qtd</th><th>Subtotal</th></tr></thead><tbody>
               ${itens.map((i) => `<tr><td>${esc(i.produto_nome)}</td><td>${esc(opc(i))}</td><td>${i.quantidade}</td><td>${brl(i.subtotal)}</td></tr>`).join('')}
+              ${Number(p.desconto) > 0 ? `<tr><td colspan="3">Desconto de combo${p.combos ? ' (' + esc(p.combos) + ')' : ''}</td><td>− ${brl(p.desconto)}</td></tr>` : ''}
               <tr><td colspan="3"><strong>Total estimado</strong></td><td><strong>${brl(p.total_estimado)}</strong></td></tr>
             </tbody></table>
           </div>
@@ -274,8 +275,8 @@
   }
   const num = (v) => Number(v).toFixed(2).replace('.', ',');
   $('csvPedidos').onclick = () => {
-    const linhas = [['Pedido', 'Data', 'Nome', 'WhatsApp', 'E-mail', 'Recebimento', 'CEP', 'Cidade', 'UF', 'Status', 'Produto', 'Cor', 'Tamanho', 'Quantidade', 'Preço unitário', 'Subtotal', 'Total do pedido', 'Observação']];
-    filtrados().forEach((p) => p.loja_pedido_itens.forEach((i) => linhas.push([p.codigo, dataBR(p.criado_em), p.nome, fone(p.whatsapp), p.email, RECEB[p.recebimento] || '', cepFmt(p.cep), p.cidade, p.uf, STATUS[p.status], i.produto_nome, i.cor || '', i.tamanho || 'Único', i.quantidade, num(i.preco_unitario), num(i.subtotal), num(p.total_estimado), p.observacao_admin])));
+    const linhas = [['Pedido', 'Data', 'Nome', 'WhatsApp', 'E-mail', 'Recebimento', 'CEP', 'Cidade', 'UF', 'Status', 'Produto', 'Cor', 'Tamanho', 'Quantidade', 'Preço unitário', 'Subtotal', 'Desconto de combo', 'Total do pedido', 'Observação']];
+    filtrados().forEach((p) => p.loja_pedido_itens.forEach((i) => linhas.push([p.codigo, dataBR(p.criado_em), p.nome, fone(p.whatsapp), p.email, RECEB[p.recebimento] || '', cepFmt(p.cep), p.cidade, p.uf, STATUS[p.status], i.produto_nome, i.cor || '', i.tamanho || 'Único', i.quantidade, num(i.preco_unitario), num(i.subtotal), num(p.desconto), num(p.total_estimado), p.observacao_admin])));
     baixarCSV(`pedidos-loja-comunidade-${new Date().toISOString().slice(0, 10)}.csv`, linhas);
   };
 
@@ -330,6 +331,7 @@
           <div><label>Ordem</label><input class="inp" name="ordem" type="number" value="${p.ordem}"></div>
           <div><label>Nome da escolha</label><input class="inp" name="rotulo" value="${esc(p.rotulo_opcoes || 'Tamanho')}" placeholder="Tamanho" maxlength="30"></div>
           <div style="grid-column: span 2"><label>Opções</label><input class="inp" name="tamanhos" value="${esc(p.tamanhos.join(', '))}" placeholder="PP, P, M, G, GG, XG"><p class="hint">Separe por vírgula. Vazio = tamanho único, sem escolha.</p></div>
+          <div><label>Grupo de combo</label><input class="inp" name="grupo_combo" value="${esc(p.grupo_combo || '')}" placeholder="camisa, bolsa ou garrafa" maxlength="30"><p class="hint">Vazio = não entra em combo.</p></div>
           <div><label>Categoria</label><input class="inp" name="categoria" value="${esc(p.categoria || '')}" placeholder="Camisas" maxlength="40" list="catList"></div>
           <div style="grid-column: span 2"><label>Cores</label><input class="inp" name="cores" value="${esc((p.cores || []).join(', '))}" placeholder="Preta, Clara"><p class="hint">Separe por vírgula. Vazio = produto sem escolha de cor.</p></div>
           <div class="full"><label>Descrição</label><textarea class="inp" name="descricao" maxlength="1200">${esc(p.descricao)}</textarea></div>
@@ -350,7 +352,7 @@
     const rotulo = String(fd.get('rotulo')).trim() || 'Tamanho';
     // tamanhos de roupa ficam em maiúsculas; outras opções (ex.: modelo da canga) mantêm o texto como foi digitado
     const tam = String(fd.get('tamanhos')).split(',').map((t) => t.trim()).filter(Boolean).map((t) => (rotulo.toLowerCase() === 'tamanho' ? t.toUpperCase() : t));
-    const upd = { nome: fd.get('nome').trim(), preco, ordem: Number(fd.get('ordem')) || 0, tamanhos: [...new Set(tam)], cores: [...new Set(String(fd.get('cores')).split(',').map((c) => c.trim()).filter(Boolean))], categoria: String(fd.get('categoria')).trim() || 'Acessórios', rotulo_opcoes: rotulo, descricao: fd.get('descricao').trim(), ativo: f.ativo.checked };
+    const upd = { nome: fd.get('nome').trim(), preco, ordem: Number(fd.get('ordem')) || 0, tamanhos: [...new Set(tam)], cores: [...new Set(String(fd.get('cores')).split(',').map((c) => c.trim()).filter(Boolean))], categoria: String(fd.get('categoria')).trim() || 'Acessórios', grupo_combo: String(fd.get('grupo_combo')).trim().toLowerCase() || null, rotulo_opcoes: rotulo, descricao: fd.get('descricao').trim(), ativo: f.ativo.checked };
     const { error } = await sb.from('loja_produtos').update(upd).eq('id', id);
     if (error) return toast('Erro ao salvar: ' + error.message);
     Object.assign(produtos.find((p) => p.id === id), upd);
