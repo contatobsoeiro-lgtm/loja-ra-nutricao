@@ -17,7 +17,6 @@
   function seExistir(url, ok) { if (!url) return; const i = new Image(); i.onload = () => ok(url); i.src = url; }
   seExistir(C.LOGO_URL, (u) => {
     $('logo').innerHTML = `<img src="${esc(u)}" alt="RA Nutrição">`;
-    document.querySelectorAll('[data-logo]').forEach((el) => { el.innerHTML = `<img src="${esc(u)}" alt="">`; el.hidden = false; });
   });
   seExistir(C.FOTO_RAFAEL, (u) => { $('authorPhoto').innerHTML = `<img src="${esc(u)}" alt="Encontros da comunidade com o nutricionista Rafael Albergaria">`; $('authorPhoto').classList.add('loaded'); });
 
@@ -27,10 +26,8 @@
   const prazoValido = fimLista && !isNaN(fimLista);
   const encerrada = () => prazoValido && new Date() > fimLista;
   const dataPrazo = () => fimLista.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
-  if (prazoValido) {
-    $('prazo').innerHTML = encerrada() ? `Lista encerrada em <b>${esc(dataPrazo())}</b>. Avisaremos a comunidade quando abrir a próxima.` : `Lista aberta até <b>${esc(dataPrazo())}</b>.`;
-    $('prazo').hidden = false;
-  }
+  if (prazoValido) $('prazo').innerHTML = encerrada() ? `Lista encerrada em <b>${esc(dataPrazo())}</b>` : `Lista de espera aberta até <b>${esc(dataPrazo())}</b>`;
+  if (encerrada()) $('aviso').lastElementChild.textContent = 'Avisaremos quando abrir a próxima';
 
   // ---------- Sacola (persistida no navegador) ----------
   const lerSacola = () => { try { return JSON.parse(localStorage.getItem(BAG_KEY)) || []; } catch { return []; } };
@@ -44,6 +41,9 @@
     $('bagCount').textContent = n;
     $('bagCount').hidden = n === 0;
     $('bagBtn').setAttribute('aria-label', n ? `Abrir sacola, ${n} ${n === 1 ? 'item' : 'itens'}` : 'Abrir sacola');
+    // no celular, a sacola vira uma barra fixa no rodapé assim que tem algo dentro
+    $('mobBar').hidden = n === 0;
+    $('mobBar').innerHTML = `<span>Ver sacola (${n})</span><span>${produtos.length ? brl(totalSacola()) : ''}</span>`;
   }
 
   // Remove itens de produtos que saíram do catálogo e atualiza nome e preço
@@ -70,8 +70,21 @@
   // ---------- Mídia ----------
   function midia(p, cls = '') {
     if (p.foto_url) return `<img src="${esc(p.foto_url)}" alt="${esc(p.nome)}" loading="lazy" class="${cls}">`;
-    return `<div class="ph"><div><span>RA</span>Foto em breve</div></div>`;
+    return `<div class="ph">${icone(p.nome)}<span>Foto em breve</span></div>`;
   }
+  // Desenho simples para produto ainda sem foto, escolhido pelo nome
+  function icone(nome) {
+    const n = String(nome || '').toLowerCase();
+    const d = /garrafa|squeeze|copo/.test(n) ? '<path d="M9.5 3h5v3l1.5 2.5V20a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V8.5L9.5 6V3Z"/><path d="M8 12h8"/>'
+      : /bolsa|sacola|bag/.test(n) ? '<path d="M5 9h14l-1 11a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 9Z"/><path d="M9 9V6.5a3 3 0 0 1 6 0V9M5.4 13h13.2"/>'
+      : /camis|blusa|regata/.test(n) ? '<path d="M8.5 4 4 6.5 6 10l2-1v11h8V9l2 1 2-3.5L15.5 4a3.5 3.5 0 0 1-7 0Z"/>'
+      : '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="m4 15 4-4 4 4 3-3 5 5"/>';
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">${d}</svg>`;
+  }
+  // "Camisa Nexus Club | Modelo 01" vira título "Camisa Nexus Club" e linha de apoio "Modelo 01"
+  const partes = (nome) => { const [t, ...r] = String(nome).split('|'); return [t.trim(), r.join('|').trim()]; };
+  const nomeLimpo = (nome) => partes(nome).filter(Boolean).join(', ');
+  const faixaTam = (p) => (!p.tamanhos.length ? 'Tamanho único' : p.rotulo.toLowerCase() === 'tamanho' && p.tamanhos.length > 2 ? `${p.tamanhos[0]} ao ${p.tamanhos[p.tamanhos.length - 1]}` : p.tamanhos.join(', '));
 
   // ---------- Catálogo ----------
   async function carregar() {
@@ -81,13 +94,27 @@
     sincronizarSacola();
     $('catCount').textContent = `${produtos.length} ${produtos.length === 1 ? 'peça' : 'peças'}`;
     if (!produtos.length) { $('grid').innerHTML = '<p class="empty">A coleção está sendo preparada. Volte em breve.</p>'; return; }
-    $('grid').innerHTML = produtos.map((p) => `
-      <button class="card" data-id="${p.id}">
+    $('grid').innerHTML = produtos.map((p) => {
+      const [titulo, apoio] = partes(p.nome);
+      return `
+      <button class="card" data-id="${p.id}" aria-label="${esc(p.nome)}, ${brl(p.preco)}">
         <div class="card-media">${midia(p)}</div>
-        <div class="card-info"><span class="card-name">${esc(p.nome)}</span><span class="card-price">${brl(p.preco)}</span></div>
-        <p class="card-meta">${p.tamanhos.length ? esc(p.tamanhos.join(' · ')) : 'Tamanho único'}</p>
-      </button>`).join('');
+        <div class="card-body">
+          <span class="card-name">${esc(titulo)}</span>
+          <span class="card-meta">${esc([apoio, faixaTam(p)].filter(Boolean).join(', '))}</span>
+          <div class="card-foot"><span class="card-price">${brl(p.preco)}</span><span class="card-cta">${p.tamanhos.length ? 'Escolher ' + esc(p.rotulo.toLowerCase()) : 'Adicionar'}</span></div>
+        </div>
+      </button>`;
+    }).join('');
+    // destaque da abertura: o primeiro produto com foto
+    const d = produtos.find((p) => p.foto_url);
+    if (d) {
+      $('heroFoto').innerHTML = `<img src="${esc(d.foto_url)}" alt="${esc(d.nome)}"><span class="selo">${esc(partes(d.nome)[0])}<b>${brl(d.preco)}</b></span>`;
+      $('heroFoto').onclick = () => abrirProduto(d.id);
+    } else { $('heroFoto').hidden = true; }
+    atualizarContador();
   }
+  $('mobBar').addEventListener('click', () => abrirSacola());
   $('grid').addEventListener('click', (e) => { const c = e.target.closest('.card'); if (c) abrirProduto(c.dataset.id); });
 
   // ---------- Painéis ----------
@@ -127,7 +154,7 @@
     $('pmThumbs').hidden = imagens.length < 2;
     $('pmThumbs').innerHTML = imagens.map((im, i) => `<button type="button" class="pm-thumb" data-img="${i}" aria-pressed="${i === 0}"><span><img src="${esc(im.url)}" alt=""></span>${esc(im.rot)}</button>`).join('');
     mostrarImagem(0);
-    $('pmName').textContent = atual.nome;
+    $('pmName').textContent = nomeLimpo(atual.nome);
     $('pmPrice').innerHTML = `${brl(atual.preco)}<small>Valor estimado por unidade</small>`;
     $('pmDesc').textContent = atual.descricao || '';
     $('pmDesc').hidden = !atual.descricao;
@@ -167,7 +194,7 @@
     if (atual.tamanhos.length && !tamanho) { $('pmSizeHint').textContent = `Escolha uma opção de ${atual.rotulo.toLowerCase()} para continuar.`; return; }
     adicionar(atual, tamanho, qtd);
     fechar('pm');
-    toast(`${atual.nome}${tamanho ? ' · ' + tamanho : ''} adicionado à sacola`, 'Ver sacola', abrirSacola);
+    toast(`${partes(atual.nome)[0]}${tamanho ? ', tamanho ' + tamanho : ''} na sacola`, 'Ver sacola', abrirSacola);
   });
 
   // ---------- Toast ----------
@@ -200,8 +227,8 @@
         return `<div class="line-item">
           <div class="li-media">${midia(p)}</div>
           <div>
-            <div class="li-top"><span class="li-name">${esc(p.nome)}</span><span class="li-sub">${brl(i.quantidade * p.preco)}</span></div>
-            <p class="li-meta">${i.tamanho ? esc(p.rotulo) + ' ' + esc(i.tamanho) + ' · ' : ''}${brl(p.preco)} cada</p>
+            <div class="li-top"><span class="li-name">${esc(nomeLimpo(p.nome))}</span><span class="li-sub">${brl(i.quantidade * p.preco)}</span></div>
+            <p class="li-meta">${i.tamanho ? esc(p.rotulo) + ' ' + esc(i.tamanho) + ', ' : ''}${brl(p.preco)} cada</p>
             <div class="li-bottom">
               <div class="qty sm"><button type="button" data-a="menos" data-i="${idx}" aria-label="Diminuir" ${i.quantidade <= 1 ? 'disabled' : ''}>−</button><output>${i.quantidade}</output><button type="button" data-a="mais" data-i="${idx}" aria-label="Aumentar" ${i.quantidade >= MAX_QTD ? 'disabled' : ''}>+</button></div>
               <button type="button" class="li-remove" data-a="remover" data-i="${idx}">Remover</button>
@@ -222,7 +249,7 @@
         <button class="back" id="voltar">← Voltar para a sacola</button>
         <h3 class="form-title">Confira seus produtos</h3>
         <div class="review">
-          ${sacola.map((i) => { const p = prod(i.produto_id); return `<div class="review-row"><span>${i.quantidade}× ${esc(p.nome)}${i.tamanho ? ' · ' + esc(i.tamanho) : ''}</span><span>${brl(i.quantidade * p.preco)}</span></div>`; }).join('')}
+          ${sacola.map((i) => { const p = prod(i.produto_id); return `<div class="review-row"><span>${i.quantidade}× ${esc(nomeLimpo(p.nome))}${i.tamanho ? ', ' + esc(i.tamanho) : ''}</span><span>${brl(i.quantidade * p.preco)}</span></div>`; }).join('')}
           <div class="review-total"><span>Total estimado</span><span>${brl(totalSacola())}</span></div>
         </div>
         <h3 class="form-title">Seus dados</h3>
