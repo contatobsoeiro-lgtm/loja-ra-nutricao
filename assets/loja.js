@@ -70,8 +70,11 @@
   }
 
   // ---------- Mídia ----------
-  function midia(p, cls = '') {
-    if (p.foto_url) return `<img src="${esc(p.foto_url)}" alt="${esc(p.nome)}" loading="lazy" class="${cls}">`;
+  // Foto do produto na cor pedida; sem cor informada, vale a da primeira cor (ou a foto geral)
+  const fotoDe = (p, c) => (c && p.fotos_cores[c]) || (p.cores.length && p.fotos_cores[p.cores[0]]) || p.foto_url;
+  function midia(p, cls = '', c = null) {
+    const url = fotoDe(p, c);
+    if (url) return `<img src="${esc(url)}" alt="${esc(p.nome)}${c ? ', cor ' + esc(c.toLowerCase()) : ''}" loading="lazy" class="${cls}">`;
     return `<div class="ph">${icone(p.nome)}<span>Foto em breve</span></div>`;
   }
   // Desenho simples para produto ainda sem foto, escolhido pelo nome
@@ -93,9 +96,9 @@
 
   // ---------- Catálogo ----------
   async function carregar() {
-    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,cores,categoria,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
+    const { data, error } = await sb.from('loja_produtos').select('id,nome,descricao,preco,tamanhos,cores,fotos_cores,categoria,rotulo_opcoes,foto_url,ordem').eq('ativo', true).order('ordem').order('nome');
     if (error) { $('grid').innerHTML = '<p class="empty">Não foi possível carregar a coleção agora. Atualize a página em instantes.</p>'; return; }
-    produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [], cores: p.cores || [], categoria: (p.categoria || '').trim() || 'Outros', rotulo: p.rotulo_opcoes || 'Tamanho' }));
+    produtos = data.map((p) => ({ ...p, tamanhos: p.tamanhos || [], cores: p.cores || [], fotos_cores: p.fotos_cores || {}, categoria: (p.categoria || '').trim() || 'Outros', rotulo: p.rotulo_opcoes || 'Tamanho' }));
     sincronizarSacola();
     if (!produtos.length) { $('grid').innerHTML = '<p class="empty">A coleção está sendo preparada. Volte em breve.</p>'; return; }
     // categorias na ordem em que aparecem (os produtos já vêm ordenados pelo campo Ordem do painel)
@@ -107,7 +110,8 @@
         <div class="card-media">${midia(p)}</div>
         <div class="card-body">
           <span class="card-name">${esc(titulo)}</span>
-          <span class="card-meta">${esc([apoio, faixaTam(p), p.cores.length > 1 ? p.cores.length + ' cores' : ''].filter(Boolean).join(', '))}</span>
+          <span class="card-meta">${esc([apoio, faixaTam(p)].filter(Boolean).join(', '))}</span>
+          ${p.cores.length > 1 ? `<span class="card-cores" aria-label="Cores: ${esc(p.cores.join(', '))}">${p.cores.map((c) => `<i class="swatch" style="background:${COR_HEX[c.toLowerCase()] || '#CCC'}" title="${esc(c)}"></i>`).join('')}</span>` : ''}
           <div class="card-foot"><span class="card-price">${brl(p.preco)}</span><span class="card-cta">${p.cores.length ? 'Escolher opções' : p.tamanhos.length ? 'Escolher ' + esc(p.rotulo.toLowerCase()) : 'Adicionar'}</span></div>
         </div>
       </button>`;
@@ -119,9 +123,9 @@
     $('cats').hidden = cats.length < 2;
     $('cats').innerHTML = ['Tudo', ...cats].map((c, i) => `<button type="button" class="cat-btn" aria-pressed="${i === 0}" data-cat="${i === 0 ? '' : esc(c)}">${esc(c)}</button>`).join('');
     // destaque da abertura: o primeiro produto com foto
-    const d = produtos.find((p) => p.foto_url);
+    const d = produtos.find((p) => fotoDe(p));
     if (d) {
-      $('heroFoto').innerHTML = `<img src="${esc(d.foto_url)}" alt="${esc(d.nome)}"><span class="selo">${esc(partes(d.nome)[0])}<b>${brl(d.preco)}</b></span>`;
+      $('heroFoto').innerHTML = `<img src="${esc(fotoDe(d))}" alt="${esc(d.nome)}"><span class="selo">${esc(partes(d.nome)[0])}<b>${brl(d.preco)}</b></span>`;
       $('heroFoto').onclick = () => abrirProduto(d.id);
     } else { $('heroFoto').hidden = true; }
     atualizarContador();
@@ -159,22 +163,25 @@
   });
 
   // ---------- Produto ----------
-  function abrirProduto(id) {
-    atual = prod(id); if (!atual) return;
-    tamanho = null; qtd = 1;
-    cor = atual.cores.length === 1 ? atual.cores[0] : null;
-    $('pmCoresWrap').hidden = atual.cores.length < 2;
-    $('pmCores').innerHTML = atual.cores.map((c) => `<button type="button" class="size" aria-pressed="false" data-c="${esc(c)}"><i class="swatch" style="background:${COR_HEX[c.toLowerCase()] || '#CCC'}"></i>${esc(c)}</button>`).join('');
-    $('pmCorHint').textContent = '';
-    // galeria: foto do produto e, nas peças com tamanho, a tabela de medidas
+  function montarGaleria() {
     imagens = [];
-    if (atual.foto_url) imagens.push({ url: atual.foto_url, rot: 'Foto', alt: atual.nome });
+    if (fotoDe(atual, cor)) imagens.push({ url: fotoDe(atual, cor), rot: 'Foto', alt: atual.nome + (cor ? ', cor ' + cor.toLowerCase() : '') });
     const temTabela = !!(C.TABELA_MEDIDAS && atual.tamanhos.length && atual.rotulo.toLowerCase() === 'tamanho');
     if (temTabela) imagens.push({ url: C.TABELA_MEDIDAS, rot: 'Medidas', alt: 'Tabela de medidas da camisa' });
     $('pmMedidas').hidden = !temTabela;
     $('pmThumbs').hidden = imagens.length < 2;
     $('pmThumbs').innerHTML = imagens.map((im, i) => `<button type="button" class="pm-thumb" data-img="${i}" aria-pressed="${i === 0}"><span><img src="${esc(im.url)}" alt=""></span>${esc(im.rot)}</button>`).join('');
     mostrarImagem(0);
+  }
+  function abrirProduto(id) {
+    atual = prod(id); if (!atual) return;
+    tamanho = null; qtd = 1;
+    cor = atual.cores[0] || null; // a primeira cor já vem marcada, e a foto acompanha a escolha
+    $('pmCoresWrap').hidden = atual.cores.length < 2;
+    $('pmCores').innerHTML = atual.cores.map((c) => `<button type="button" class="size" aria-pressed="${c === cor}" data-c="${esc(c)}"><i class="swatch" style="background:${COR_HEX[c.toLowerCase()] || '#CCC'}"></i>${esc(c)}</button>`).join('');
+    $('pmCorHint').textContent = '';
+    // galeria: foto do produto e, nas peças com tamanho, a tabela de medidas
+    montarGaleria();
     $('pmName').textContent = nomeLimpo(atual.nome);
     $('pmPrice').innerHTML = `${brl(atual.preco)}<small>Valor estimado por unidade</small>`;
     $('pmDesc').textContent = atual.descricao || '';
@@ -198,6 +205,7 @@
     cor = b.dataset.c;
     $('pmCores').querySelectorAll('.size').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
     $('pmCorHint').textContent = '';
+    montarGaleria();
   });
   function renderQtd() {
     $('pmQtyVal').textContent = qtd;
@@ -253,7 +261,7 @@
       body.innerHTML = sacola.map((i, idx) => {
         const p = prod(i.produto_id); if (!p) return '';
         return `<div class="line-item">
-          <div class="li-media">${midia(p)}</div>
+          <div class="li-media">${midia(p, '', i.cor)}</div>
           <div>
             <div class="li-top"><span class="li-name">${esc(nomeLimpo(p.nome))}</span><span class="li-sub">${brl(i.quantidade * p.preco)}</span></div>
             <p class="li-meta">${escolhas(p, i) ? esc(escolhas(p, i)) + ', ' : ''}${brl(p.preco)} cada</p>

@@ -1,7 +1,7 @@
 /* Vitrine RA Nutrição Collection. O painel (admin.html) continua usando style.css. */
 :root {
   --bg: #F5EFE6; --surface: #FFFFFF; --ink: #1C1A21; --muted: #6B6672; --line: #E3D9CC;
-  --lilac: #8C6FD6; --lilac-deep: #6D50B8; --lilac-light: #EFE9FB; --photo: #D2C7C2; --err: #B4412F;
+  --lilac: #8C6FD6; --lilac-deep: #6D50B8; --lilac-light: #EFE9FB; --photo: #CBBCB9; --err: #B4412F;
   --wrap: 1240px; --r: 14px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,6 +72,8 @@ img { display: block; max-width: 100%; }
 .card-body { padding: 16px 18px 18px; display: grid; gap: 4px; flex: 1; }
 .card-name { font-weight: 600; font-size: 16px; line-height: 1.3; }
 .card-meta { color: var(--muted); font-size: 13px; }
+.card-cores { display: flex; gap: 6px; margin-top: 6px; }
+.card-cores .swatch { margin: 0; width: 15px; height: 15px; }
 .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
 .card-price { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
 .card-cta { height: 40px; padding: 0 18px; border-radius: 999px; background: var(--lilac-light); color: var(--lilac-deep); font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; white-space: nowrap; transition: background .2s, color .2s; }

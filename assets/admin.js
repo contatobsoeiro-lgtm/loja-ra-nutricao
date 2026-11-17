@@ -322,6 +322,7 @@
         <div>
           <div class="prod-photo">${p.foto_url ? `<img src="${esc(p.foto_url)}" alt="">` : '<div class="ph"><div><span>RA</span>Sem foto</div></div>'}</div>
           <label class="upload">${p.foto_url ? 'Trocar foto' : 'Enviar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" data-f="foto"></label>
+          ${(p.cores || []).map((c) => `<label class="upload">${(p.fotos_cores || {})[c] ? 'Trocar' : 'Enviar'} foto da cor ${esc(c)}<input type="file" accept="image/jpeg,image/png,image/webp" data-f="foto" data-cor="${esc(c)}"></label>`).join('')}
         </div>
         <div class="prod-fields">
           <div><label>Nome</label><input class="inp" name="nome" value="${esc(p.nome)}" required maxlength="120"></div>
@@ -368,9 +369,12 @@
     const { error } = await sb.storage.from(C.BUCKET).upload(path, file, { contentType: file.type, upsert: false });
     if (error) return toast('Erro ao enviar: ' + error.message);
     const url = sb.storage.from(C.BUCKET).getPublicUrl(path).data.publicUrl;
-    const { error: e2 } = await sb.from('loja_produtos').update({ foto_url: url }).eq('id', id);
+    // foto geral do produto ou foto de uma cor específica (mostrada na loja quando a pessoa escolhe a cor)
+    const alvo = produtos.find((p) => p.id === id), corFoto = e.target.dataset.cor;
+    const upd = corFoto ? { fotos_cores: { ...(alvo.fotos_cores || {}), [corFoto]: url } } : { foto_url: url };
+    const { error: e2 } = await sb.from('loja_produtos').update(upd).eq('id', id);
     if (e2) return toast('Foto enviada, mas não salvou no produto');
-    produtos.find((p) => p.id === id).foto_url = url;
+    Object.assign(alvo, upd);
     renderProdutos(); toast('Foto atualizada');
   });
   $('prods').addEventListener('click', async (e) => {
